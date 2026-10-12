@@ -1,0 +1,7 @@
+Name:Spire Basic Card
+ManaCost:1
+Types:Instant
+A:SP$ Charm | Choices$ DBDamage,DBPrevent
+SVar:DBDamage:DB$ DealDamage | ValidTgts$ Opponent,Creature.OppCtrl | TgtPrompt$ Select target monster | NumDmg$ 2 | SpellDescription$ CARDNAME deals 2 damage to target monster (an opponent or a creature an opponent controls).
+SVar:DBPrevent:DB$ PreventDamage | ValidTgts$ Player | TgtPrompt$ Select target player | Amount$ 3 | SpellDescription$ Prevent the next 3 damage that would be dealt to target player this turn.
+Oracle:Choose one —\n• Spire Basic Card deals 2 damage to target monster (an opponent or a creature an opponent controls).\n• Prevent the next 3 damage that would be dealt to target player this turn.\n(A flipped Commander Spire card becomes this card in a fight.)

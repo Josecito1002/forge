@@ -115,4 +115,42 @@ public class CommanderSpireTest extends AITest {
         }
         AssertJUnit.assertFalse(rat.hasLost());
     }
+
+    @Test
+    public void basicCardDealsTwoToTheMonster() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(1);
+        Player rat = game.getPlayers().get(0);
+        rat.setLife(10, null);
+        Card basic = addCardToZone("Spire Basic Card", p, ZoneType.Hand);
+
+        SpellAbility sa = basic.getFirstSpellAbility().getAdditionalAbilityList("Choices").get(0);
+        sa.setActivatingPlayer(p);
+        sa.getTargets().add(rat);
+        AbilityUtils.resolve(sa);
+
+        AssertJUnit.assertEquals(8, rat.getLife());
+    }
+
+    @Test
+    public void basicCardPreventsThreeDamage() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(1);
+        Player rat = game.getPlayers().get(0);
+        p.setLife(40, null);
+        Card basic = addCardToZone("Spire Basic Card", p, ZoneType.Hand);
+
+        SpellAbility sa = basic.getFirstSpellAbility().getAdditionalAbilityList("Choices").get(1);
+        sa.setActivatingPlayer(p);
+        sa.getTargets().add(p);
+        AbilityUtils.resolve(sa);
+
+        Card axe = addCardToZone("Lava Axe", rat, ZoneType.Hand);
+        SpellAbility hit = axe.getFirstSpellAbility();
+        hit.setActivatingPlayer(rat);
+        hit.getTargets().add(p);
+        AbilityUtils.resolve(hit);
+
+        AssertJUnit.assertEquals(38, p.getLife());
+    }
 }
