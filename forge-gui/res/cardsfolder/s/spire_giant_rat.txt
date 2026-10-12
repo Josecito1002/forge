@@ -2,15 +2,15 @@ Name:Spire Giant Rat
 ManaCost:no cost
 Types:Enchantment
 R:Event$ GameLoss | ActiveZones$ Command | ValidPlayer$ You | ValidLoseReason$ Milled | Layer$ CantHappen | Description$ You don't lose the game for drawing from an empty library.
-T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Command | IsPresent$ Card.Self+counters_EQ0_TURN | PresentZone$ Command | Execute$ TrigAtk | TriggerDescription$ Intent 1: deals 4 damage to each opponent.
-T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Command | IsPresent$ Card.Self+counters_EQ1_TURN | PresentZone$ Command | Execute$ TrigAtk | TriggerDescription$ Intent 2: deals 4 damage to each opponent.
-T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Command | IsPresent$ Card.Self+counters_EQ2_TURN | PresentZone$ Command | Execute$ TrigStr | TriggerDescription$ Intent 3: gains +1 strength.
-T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Command | IsPresent$ Card.Self+counters_EQ3_TURN | PresentZone$ Command | Execute$ TrigBite | TriggerDescription$ Intent 4: deals 2 damage to each opponent, who discards a card at random.
+T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Command | IsPresent$ Card.Self+counters_EQ0_TURN | PresentZone$ Command | Execute$ TrigAtk | TriggerDescription$ Intent 1 of 4: CARDNAME bites for 5 damage (plus its strength) to each opponent.
+T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Command | IsPresent$ Card.Self+counters_EQ1_TURN | PresentZone$ Command | Execute$ TrigAtk | TriggerDescription$ Intent 2 of 4: CARDNAME bites for 5 damage (plus its strength) to each opponent.
+T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Command | IsPresent$ Card.Self+counters_EQ2_TURN | PresentZone$ Command | Execute$ TrigStr | TriggerDescription$ Intent 3 of 4: CARDNAME grows: +2 strength.
+T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Command | IsPresent$ Card.Self+counters_EQ3_TURN | PresentZone$ Command | Execute$ TrigBite | TriggerDescription$ Intent 4 of 4: CARDNAME gnaws for 3 damage to each opponent, who discards a card at random.
 SVar:TrigAtk:DB$ DealDamage | Defined$ Opponent | NumDmg$ X | SubAbility$ DBStep
-SVar:TrigStr:DB$ PutCounter | Defined$ Self | CounterType$ STR | CounterNum$ 1 | SubAbility$ DBStep
-SVar:TrigBite:DB$ DealDamage | Defined$ Opponent | NumDmg$ 2 | SubAbility$ DBDiscard
+SVar:TrigStr:DB$ PutCounter | Defined$ Self | CounterType$ STR | CounterNum$ 2 | SubAbility$ DBStep
+SVar:TrigBite:DB$ DealDamage | Defined$ Opponent | NumDmg$ 3 | SubAbility$ DBDiscard
 SVar:DBDiscard:DB$ Discard | Defined$ Opponent | NumCards$ 1 | Mode$ Random | SubAbility$ DBReset
+SVar:X:Count$CardCounters.STR/Plus.5
 SVar:DBStep:DB$ PutCounter | Defined$ Self | CounterType$ TURN | CounterNum$ 1
-SVar:DBReset:DB$ RemoveCounter | Defined$ Self | CounterType$ TURN | CounterNum$ 4
-SVar:X:Count$CardCounters.STR/Plus.4
-Oracle:You don't lose the game for drawing from an empty library.\nEach of your upkeeps the Spire Giant Rat acts in a cycle: 4 damage, 4 damage, +1 strength, then 2 damage and the opponent discards a card at random. Cards with ability counters: TURN tracks the step, STR adds to its damage.
+SVar:DBReset:DB$ RemoveCounter | Defined$ Self | CounterType$ TURN | CounterNum$ All
+Oracle:You don't lose the game for drawing from an empty library.\nEach of your upkeeps the Spire Giant Rat acts in a cycle: 5 damage, 5 damage, +2 strength, then 3 damage and the opponent discards a card at random. TURN counters track the step, STR adds to its bites.

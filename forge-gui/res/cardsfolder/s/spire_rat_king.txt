@@ -9,14 +9,17 @@ SVar:Blk:Count$CardCounters.BLOCK
 SVar:PreventedDamage:Number$0
 T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ Opponent | TriggerZones$ Command | IsPresent$ Card.Self+counters_GE1_BLOCK | PresentZone$ Command | Execute$ TrigClearBlock | TriggerDescription$ At the beginning of each opponent's end step, remove all block counters from CARDNAME.
 SVar:TrigClearBlock:DB$ RemoveCounter | Defined$ Self | CounterType$ BLOCK | CounterNum$ All
-T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Command | Execute$ Act0 | TriggerDescription$ At the beginning of your upkeep, act in a cycle (TURN counters show the step): create two 1/1 black Rat tokens · 8 damage to each opponent · block 10 · 6 damage to each opponent.
-T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Command | CheckSVar$ Life | SVarCompare$ LE20 | Execute$ Act0 | TriggerDescription$ Phase 2: at the beginning of your upkeep, if you have 20 or less life, act again.
-SVar:Act0:DB$ Token | TokenAmount$ 2 | TokenScript$ b_1_1_rat | TokenOwner$ You | ConditionCheckSVar$ T | ConditionSVarCompare$ EQ0 | SubAbility$ Act1
-SVar:Act1:DB$ DealDamage | Defined$ Opponent | NumDmg$ 8 | ConditionCheckSVar$ T | ConditionSVarCompare$ EQ1 | SubAbility$ Act2
-SVar:Act2:DB$ PutCounter | Defined$ Self | CounterType$ BLOCK | CounterNum$ 10 | ConditionCheckSVar$ T | ConditionSVarCompare$ EQ2 | SubAbility$ Act3
-SVar:Act3:DB$ DealDamage | Defined$ Opponent | NumDmg$ 6 | ConditionCheckSVar$ T | ConditionSVarCompare$ EQ3 | SubAbility$ DBStep
-SVar:DBStep:DB$ PutCounter | Defined$ Self | CounterType$ TURN | CounterNum$ 1 | SubAbility$ DBReset
-SVar:DBReset:DB$ RemoveCounter | Defined$ Self | CounterType$ TURN | CounterNum$ All | ConditionCheckSVar$ T | ConditionSVarCompare$ GE4
-SVar:T:Count$CardCounters.TURN
+T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Command | IsPresent$ Card.Self+counters_EQ0_TURN | PresentZone$ Command | Execute$ I0 | TriggerDescription$ Intent 1 of 4: CARDNAME calls its brood: create two 1/1 black Rat creature tokens.
+T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Command | IsPresent$ Card.Self+counters_EQ1_TURN | PresentZone$ Command | Execute$ I1 | TriggerDescription$ Intent 2 of 4: CARDNAME lunges for 9 damage to each opponent.
+T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Command | IsPresent$ Card.Self+counters_EQ2_TURN | PresentZone$ Command | Execute$ I2 | TriggerDescription$ Intent 3 of 4: CARDNAME hides behind its brood: block 15.
+T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Command | IsPresent$ Card.Self+counters_EQ3_TURN | PresentZone$ Command | Execute$ I3 | TriggerDescription$ Intent 4 of 4: CARDNAME claws for 7 damage to each opponent.
+T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Command | CheckSVar$ Life | SVarCompare$ LE35 | Execute$ Enrage | TriggerDescription$ Enraged (35 life or less): at the beginning of your upkeep, CARDNAME also deals 5 damage to each opponent.
+SVar:I0:DB$ Token | TokenAmount$ 2 | TokenScript$ b_1_1_rat | TokenOwner$ You | SubAbility$ DBStep
+SVar:I1:DB$ DealDamage | Defined$ Opponent | NumDmg$ 9 | SubAbility$ DBStep
+SVar:I2:DB$ PutCounter | Defined$ Self | CounterType$ BLOCK | CounterNum$ 15 | SubAbility$ DBStep
+SVar:I3:DB$ DealDamage | Defined$ Opponent | NumDmg$ 7 | SubAbility$ DBReset
+SVar:Enrage:DB$ DealDamage | Defined$ Opponent | NumDmg$ 5
 SVar:Life:Count$YourLifeTotal
-Oracle:You don't lose the game for drawing from an empty library.\nBlock: if damage would be dealt to you, prevent that much of it and remove that many block counters from Spire Rat King.\nAt the beginning of each opponent's end step, remove all block counters.\nAt the beginning of your upkeep, act in a cycle: create two 1/1 black Rat tokens · 8 damage to each opponent · block 10 · 6 damage to each opponent.\nPhase 2: at 20 life or less, it acts twice each upkeep.
+SVar:DBStep:DB$ PutCounter | Defined$ Self | CounterType$ TURN | CounterNum$ 1
+SVar:DBReset:DB$ RemoveCounter | Defined$ Self | CounterType$ TURN | CounterNum$ All
+Oracle:You don't lose the game for drawing from an empty library.\nBlock: if damage would be dealt to you, prevent that much of it and remove that many block counters from Spire Rat King.\nAt the beginning of each opponent's end step, remove all block counters.\nEach of your upkeeps it acts in a cycle: two 1/1 Rat tokens · 9 damage · block 15 · 7 damage.\nEnraged: at 35 life or less it also deals 5 damage each upkeep.

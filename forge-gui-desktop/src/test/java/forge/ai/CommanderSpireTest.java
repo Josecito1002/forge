@@ -106,7 +106,7 @@ public class CommanderSpireTest extends AITest {
             addCardToZone("Island", p, ZoneType.Hand);
         }
 
-        int[] expectedLife = {36, 32, 32, 30, 25};
+        int[] expectedLife = {35, 30, 30, 27, 20};
         for (int expected : expectedLife) {
             do {
                 playUntilNextTurn(game);
@@ -193,8 +193,8 @@ public class CommanderSpireTest extends AITest {
             addCardToZone("Island", p, ZoneType.Hand);
         }
 
-        int[] expectedLife = {34, 34, 29, 23, 17};
-        int[] expectedBlock = {0, 6, 3, 0, 0};
+        int[] expectedLife = {33, 33, 28, 21, 14};
+        int[] expectedBlock = {0, 10, 5, 0, 0};
         for (int i = 0; i < expectedLife.length; i++) {
             do {
                 playUntilNextTurn(game);
@@ -206,7 +206,7 @@ public class CommanderSpireTest extends AITest {
     }
 
     @Test
-    public void ratKingActsTwiceInPhaseTwo() {
+    public void ratKingEnragesInPhaseTwo() {
         Game game = initAndCreateGame();
         Player p = game.getPlayers().get(1);
         Player king = game.getPlayers().get(0);
@@ -218,18 +218,18 @@ public class CommanderSpireTest extends AITest {
             addCardToZone("Island", p, ZoneType.Hand);
         }
 
-        // phase 1: rats, then 8 damage
+        // phase 1: rats, then 9 damage
         goToMonsterMain1(game, king);
         AssertJUnit.assertEquals(2, countCardsWithName(game, "Rat Token"));
         goToMonsterMain1(game, king);
         int afterHit = p.getLife();
-        AssertJUnit.assertTrue("rats may attack too, but the 8 damage landed", afterHit <= 32);
+        AssertJUnit.assertTrue("rats may attack too, but the 9 damage landed", afterHit <= 31);
 
-        // phase 2: block 10 and 6 damage in the same upkeep
+        // phase 2: block 15, and the enraged 5 damage in the same upkeep
         king.setLife(20, null);
         goToMonsterMain1(game, king);
-        AssertJUnit.assertTrue(p.getLife() <= afterHit - 6);
-        AssertJUnit.assertEquals(10, game.getCardsIn(ZoneType.Command).stream()
+        AssertJUnit.assertTrue(p.getLife() <= afterHit - 5);
+        AssertJUnit.assertEquals(15, game.getCardsIn(ZoneType.Command).stream()
                 .filter(c -> c.getName().equals("Spire Rat King")).findFirst().get()
                 .getCounters(CounterType.getType("BLOCK")));
     }

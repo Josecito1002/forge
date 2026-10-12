@@ -108,13 +108,15 @@ public class SpireScreen extends LaunchScreen {
         lblHint.setVisible(inRun);
         btnDeck.setVisible(inRun);
         btnAbandon.setVisible(inRun);
+        // in a run the map is the only way forward: tap a node, no Start button
+        btnStart.setVisible(!inRun);
         statsBar.setRun(run);
         if (inRun) {
             final SpireMap.Monster fight = run.getPendingFight();
             if (fight != null) {
-                lblHint.setText("Tap Start (or your node) to fight the " + fight.label + ".");
+                lblHint.setText("Tap your node to fight the " + fight.label + ".");
             } else if (run.isAtCampfire()) {
-                lblHint.setText("Tap Start to rest at the campfire.");
+                lblHint.setText("Tap the campfire to rest.");
             } else {
                 lblHint.setText("Tap a glowing node to choose your path.");
             }
@@ -167,7 +169,8 @@ public class SpireScreen extends LaunchScreen {
         y += statsHeight + PADDING;
 
         float buttonHeight = Utils.AVG_FINGER_HEIGHT * 0.8f;
-        float bottom = height - PADDING;
+        // the hidden Start button's space goes to the map
+        float bottom = height + btnStart.getHeight() + PADDING;
         float half = (w - PADDING) / 2;
         btnDeck.setBounds(PADDING, bottom - buttonHeight, half, buttonHeight);
         btnAbandon.setBounds(PADDING * 2 + half, bottom - buttonHeight, half, buttonHeight);
@@ -257,19 +260,8 @@ public class SpireScreen extends LaunchScreen {
             useCampfire();
             return;
         }
-        final List<SpireMap.Node> choices = run.getNextChoices();
-        if (choices.isEmpty()) {
-            return;
-        }
-        GuiChoose.oneOrNone("Choose your next node", choices, node -> {
-            if (node == null) {
-                return;
-            }
-            run.moveTo(node);
-            saveRun();
-            refresh();
-            advance();
-        });
+        // otherwise the player picks the next node by tapping it on the map
+        refresh();
     }
 
     private void useCampfire() {
@@ -372,6 +364,10 @@ public class SpireScreen extends LaunchScreen {
         final SpireRun current = run;
         final SpireRun.Fight fight = current.prepareFight(basic, rng);
 
+        // without a player name set the result screen reads "Human won!" and ": 1 ... : 0"
+        if (GamePlayerUtil.getGuiPlayer().getName() == null || GamePlayerUtil.getGuiPlayer().getName().trim().isEmpty()) {
+            GamePlayerUtil.getGuiPlayer().setName("You");
+        }
         final Set<GameType> variants = EnumSet.of(GameType.Commander);
         final RegisteredPlayer human = RegisteredPlayer.forVariants(2, variants, fight.deck, null, false, null, null)
                 .setPlayer(GamePlayerUtil.getGuiPlayer());

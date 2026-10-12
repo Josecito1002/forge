@@ -24,9 +24,9 @@ public class SpireMap {
     }
 
     public enum Monster {
-        GIANT_RAT("Giant Rat", "Spire Giant Rat", 10),
-        SKELETON_GUARDIAN("Skeleton Guardian", "Spire Skeleton Guardian", 14),
-        RAT_KING("Rat King", "Spire Rat King", 40);
+        GIANT_RAT("Giant Rat", "Spire Giant Rat", 20),
+        SKELETON_GUARDIAN("Skeleton Guardian", "Spire Skeleton Guardian", 28),
+        RAT_KING("Rat King", "Spire Rat King", 70);
 
         public final String label;
         public final String cardName;
