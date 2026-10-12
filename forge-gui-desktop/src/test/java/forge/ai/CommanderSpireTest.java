@@ -134,25 +134,35 @@ public class CommanderSpireTest extends AITest {
     }
 
     @Test
-    public void basicCardPreventsThreeDamage() {
+    public void basicCardBlocksThreeDamageUntilYourNextTurn() {
         Game game = initAndCreateGame();
         Player p = game.getPlayers().get(1);
-        Player rat = game.getPlayers().get(0);
+        Player skel = game.getPlayers().get(0);
         p.setLife(40, null);
+        fillLibrary(p, 20);
+        Card rules = addCardToZone("Commander Spire Rules", p, ZoneType.Command);
+        addCardToZone("Spire Skeleton Guardian", skel, ZoneType.Battlefield);
         Card basic = addCardToZone("Spire Basic Card", p, ZoneType.Hand);
 
+        // the block mode takes no target: it always goes on you
         SpellAbility sa = basic.getFirstSpellAbility().getAdditionalAbilityList("Choices").get(1);
+        AssertJUnit.assertFalse(sa.usesTargeting());
         sa.setActivatingPlayer(p);
-        sa.getTargets().add(p);
         AbilityUtils.resolve(sa);
+        AssertJUnit.assertEquals(3, rules.getCounters(CounterType.getType("BLOCK")));
 
-        Card axe = addCardToZone("Lava Axe", rat, ZoneType.Hand);
-        SpellAbility hit = axe.getFirstSpellAbility();
-        hit.setActivatingPlayer(rat);
-        hit.getTargets().add(p);
-        AbilityUtils.resolve(hit);
+        // it survives your end step and soaks the monster's 7 damage on its turn
+        goToMonsterMain1(game, skel);
+        AssertJUnit.assertEquals(36, p.getLife());
+        AssertJUnit.assertEquals(0, rules.getCounters(CounterType.getType("BLOCK")));
 
-        AssertJUnit.assertEquals(38, p.getLife());
+        // unused block goes away at the beginning of your upkeep
+        rules.addCounterInternal(CounterType.getType("BLOCK"), 5, p, false, null, null);
+        do {
+            playUntilNextTurn(game);
+        } while (!game.isGameOver() && !game.getPhaseHandler().isPlayerTurn(p));
+        playUntilPhase(game, PhaseType.MAIN1);
+        AssertJUnit.assertEquals(0, rules.getCounters(CounterType.getType("BLOCK")));
     }
 
     @Test
