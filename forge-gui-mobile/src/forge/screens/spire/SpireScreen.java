@@ -141,6 +141,8 @@ public class SpireScreen extends LaunchScreen {
 
         final GameRules rules = new GameRules(GameType.Commander);
         rules.setGamesPerMatch(1);
+        rules.setMulligansAllowed(false);
+        rules.setLandPileInSideboard(true);
         final HostedMatch hostedMatch = GuiBase.getInterface().hostMatch();
         hostedMatch.startMatch(rules, variants, players, human, GuiBase.getInterface().getNewGuiGame());
     }
