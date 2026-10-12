@@ -1036,6 +1036,9 @@ public class ChangeZoneEffect extends SpellAbilityEffect {
                         shuffleMandatory = !sa.hasParam("ShuffleNonMandatory");
                         searchedLibrary = false;
                     }
+                    if (searchedLibrary && game.getRules().hasLandPileInSideboard()) {
+                        fetchList.addAll(CardLists.filter(player.getCardsIn(ZoneType.Sideboard), CardPredicates.LANDS));
+                    }
                 }
             }
 

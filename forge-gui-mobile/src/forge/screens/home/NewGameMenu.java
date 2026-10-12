@@ -16,6 +16,7 @@ import forge.screens.limited.NewDraftScreen;
 import forge.screens.limited.NewSealedScreen;
 import forge.screens.planarconquest.NewConquestScreen;
 import forge.screens.quest.NewQuestScreen;
+import forge.screens.spire.SpireScreen;
 
 public class NewGameMenu extends FPopupMenu {
 
@@ -27,7 +28,8 @@ public class NewGameMenu extends FPopupMenu {
         PuzzleMode(Forge.getLocalizer().getMessageorUseDefault("lblPuzzleMode", "Puzzle Mode"), FSkinImage.MENU_PUZZLE, PuzzleScreen.class),
         PlanarConquest(Forge.getLocalizer().getMessageorUseDefault("lblPlanarConquest", "Planar Conquest"), FSkinImage.MENU_GALAXY, NewConquestScreen.class),
         Gauntlet(Forge.getLocalizer().getMessageorUseDefault("lblGauntlet", "Gauntlet"), FSkinImage.MENU_GAUNTLET, NewGauntletScreen.class),
-        Adventure(Forge.getLocalizer().getMessageorUseDefault("lblAdventureMode", "Adventure Mode"), FSkinImage.MENU_ADVLOGO, AdventureScreen.class);
+        Adventure(Forge.getLocalizer().getMessageorUseDefault("lblAdventureMode", "Adventure Mode"), FSkinImage.MENU_ADVLOGO, AdventureScreen.class),
+        CommanderSpire("Commander Spire", FSkinImage.MENU_ADVLOGO, SpireScreen.class);
 
         private final FMenuItem item;
         private final Class<? extends FScreen> screenClass;

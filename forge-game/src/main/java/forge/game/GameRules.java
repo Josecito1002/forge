@@ -18,6 +18,9 @@ public class GameRules {
     private boolean allowCheatShuffle = false;
     private final Set<GameType> appliedVariants = EnumSet.noneOf(GameType.class);
     private int simTimeout = 120;
+    private boolean mulligansAllowed = true;
+    // Commander Spire: lands live in a separate pile (the sideboard zone) that library searches also look through
+    private boolean landPileInSideboard = false;
 
     // it's a preference, not rule... but I could hardly find a better place for it
     private boolean useGrayText;
@@ -38,6 +41,20 @@ public class GameRules {
     }
     public void setManaBurn(final boolean manaBurn) {
         this.manaBurn = manaBurn;
+    }
+
+    public boolean areMulligansAllowed() {
+        return mulligansAllowed;
+    }
+    public void setMulligansAllowed(final boolean mulligansAllowed) {
+        this.mulligansAllowed = mulligansAllowed;
+    }
+
+    public boolean hasLandPileInSideboard() {
+        return landPileInSideboard;
+    }
+    public void setLandPileInSideboard(final boolean landPileInSideboard) {
+        this.landPileInSideboard = landPileInSideboard;
     }
 
     public boolean hasOrderCombatants() {

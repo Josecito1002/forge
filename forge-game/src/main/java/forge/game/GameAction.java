@@ -2370,7 +2370,7 @@ public class GameAction {
                 }
             }
 
-            if (game.getRules().getGameType() != GameType.Puzzle) {
+            if (game.getRules().getGameType() != GameType.Puzzle && game.getRules().areMulligansAllowed()) {
                 new MulliganService(first).perform();
             }
             if (game.isGameOver()) { break; } // conceded during "mulligan" prompt
