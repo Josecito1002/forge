@@ -31,6 +31,7 @@ public class SpireMapView extends FScrollPane {
     private static final Color FIGHT = new Color(0.62f, 0.18f, 0.16f, 1f);
     private static final Color ELITE_FIGHT = new Color(0.45f, 0.20f, 0.45f, 1f);
     private static final Color CAMPFIRE = new Color(0.85f, 0.50f, 0.12f, 1f);
+    private static final Color SHOP = new Color(0.15f, 0.55f, 0.35f, 1f);
     private static final Color BOSS = new Color(0.40f, 0.10f, 0.45f, 1f);
     private static final Color PATH = new Color(0.55f, 0.55f, 0.60f, 0.35f);
     private static final Color PATH_NEXT = new Color(1f, 0.82f, 0.30f, 0.9f);
@@ -141,7 +142,7 @@ public class SpireMapView extends FScrollPane {
                 g.fillCircle(DIM, x, y, rad);
             }
 
-            String label = node.monster == null ? "Campfire" : node.monster.label;
+            String label = node.monster == null ? node.type.label : node.monster.label;
             float labelWidth = getWidth() / SpireMap.WIDTH;
             float labelY = y + rad + Utils.scale(1);
             g.drawOutlinedText(label, LABEL_FONT, LABEL, Color.BLACK, x - labelWidth / 2, labelY,
@@ -156,6 +157,7 @@ public class SpireMapView extends FScrollPane {
             switch (node.type) {
                 case BOSS: return BOSS;
                 case CAMPFIRE: return CAMPFIRE;
+                case SHOP: return SHOP;
                 default: return node.monster == SpireMap.Monster.SKELETON_GUARDIAN ? ELITE_FIGHT : FIGHT;
             }
         }
@@ -164,6 +166,7 @@ public class SpireMapView extends FScrollPane {
             switch (node.type) {
                 case BOSS: return FSkinImage.QUEST_BIG_AXE;
                 case CAMPFIRE: return FSkinImage.QUEST_BIG_BREW;
+                case SHOP: return FSkinImage.QUEST_COINSTACK;
                 default: return node.monster == SpireMap.Monster.SKELETON_GUARDIAN
                         ? FSkinImage.QUEST_BIG_SHIELD : FSkinImage.QUEST_BIG_SWORD;
             }

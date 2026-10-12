@@ -24,6 +24,8 @@ public class SpireRun {
     public static final int STARTING_LANDS = 3;
     public static final int BOSS_REWARD_REVEAL = 5;
     public static final int CAMPFIRE_HEAL = 12;
+    public static final int STARTING_GOLD = 50;
+    public static final int FIGHT_GOLD = 30;
 
     private final String deckName;
     private final List<PaperCard> commanders = new ArrayList<>();
@@ -32,7 +34,9 @@ public class SpireRun {
     private final List<PaperCard> deck = new ArrayList<>();
     private final List<PaperCard> flipped = new ArrayList<>();
     private final List<PaperCard> pendingReward = new ArrayList<>();
+    private final List<PaperCard> shopOffer = new ArrayList<>();
     private int life = MAX_LIFE;
+    private int gold = STARTING_GOLD;
     private int fightsWon;
     private boolean mulliganUsed;
     private boolean over;
@@ -86,6 +90,7 @@ public class SpireRun {
     public List<PaperCard> getFlipped() { return Collections.unmodifiableList(flipped); }
     public int getDeckSize() { return deck.size() + flipped.size(); }
     public int getLife() { return life; }
+    public int getGold() { return gold; }
     public int getFightsWon() { return fightsWon; }
     public boolean isOver() { return over; }
     /** The boss is beaten: the run ends in victory once its reward is chosen. */
@@ -120,6 +125,39 @@ public class SpireRun {
     public boolean isAtCampfire() {
         SpireMap.Node node = getCurrentNode();
         return node != null && !nodeDone && node.type == SpireMap.NodeType.CAMPFIRE;
+    }
+
+    public boolean isAtShop() {
+        SpireMap.Node node = getCurrentNode();
+        return node != null && !nodeDone && node.type == SpireMap.NodeType.SHOP;
+    }
+
+    public List<PaperCard> getShopOffer() { return Collections.unmodifiableList(shopOffer); }
+
+    /** Stocks the shop the first time the player opens it; the offer is kept until they leave. */
+    public void stockShop(List<PaperCard> offer) {
+        if (isAtShop() && shopOffer.isEmpty()) {
+            shopOffer.addAll(offer);
+        }
+    }
+
+    /** Buys a card from the shop into the deck; false when it isn't offered or costs more than the gold left. */
+    public boolean buy(PaperCard card) {
+        int price = SpireShop.price(card);
+        if (!isAtShop() || !shopOffer.contains(card) || price > gold) {
+            return false;
+        }
+        gold -= price;
+        shopOffer.remove(card);
+        deck.add(card);
+        return true;
+    }
+
+    public void leaveShop() {
+        if (isAtShop()) {
+            shopOffer.clear();
+            nodeDone = true;
+        }
     }
 
     /** Campfire: heal 12 (up to 40). */
@@ -195,7 +233,7 @@ public class SpireRun {
     }
 
     /**
-     * A won fight: life carries over (up to 40) and 3 pool cards are revealed as the reward.
+     * A won fight: life carries over (up to 40), 30 gold, and 3 pool cards are revealed as the reward.
      * The boss reveals 5, heals fully and wins the run.
      */
     public void recordWin(int lifeLeft) {
@@ -203,6 +241,7 @@ public class SpireRun {
         boolean boss = node != null && node.type == SpireMap.NodeType.BOSS;
         life = boss ? MAX_LIFE : Math.max(1, Math.min(MAX_LIFE, lifeLeft));
         fightsWon++;
+        gold += boss ? 0 : FIGHT_GOLD;
         nodeDone = true;
         victory |= boss;
         takeReward(null); // an unclaimed earlier reward goes back to the pool
@@ -236,6 +275,7 @@ public class SpireRun {
         List<String> lines = new ArrayList<>();
         lines.add("name=" + deckName);
         lines.add("life=" + life);
+        lines.add("gold=" + gold);
         lines.add("won=" + fightsWon);
         lines.add("mulligan=" + mulliganUsed);
         lines.add("over=" + over);
@@ -249,6 +289,7 @@ public class SpireRun {
         saveCards(lines, "flipped", flipped);
         saveCards(lines, "pool", pool);
         saveCards(lines, "reward", pendingReward);
+        saveCards(lines, "shop", shopOffer);
         lines.add("[map]");
         lines.addAll(map.save());
         return lines;
@@ -264,7 +305,7 @@ public class SpireRun {
     /** Restores a saved run; cards are looked up with {@code findCard} ("name|set"), unknown cards are dropped. */
     public static SpireRun load(List<String> lines, Function<String, PaperCard> findCard) {
         String name = "";
-        int life = MAX_LIFE, won = 0;
+        int life = MAX_LIFE, won = 0, gold = STARTING_GOLD;
         boolean mulligan = false, over = false, victory = false, nodeDone = true;
         int row = -1, column = -1;
         List<String> mapLines = null;
@@ -291,6 +332,7 @@ public class SpireRun {
                     case "[flipped]": target = run.flipped; break;
                     case "[pool]": target = run.pool; break;
                     case "[reward]": target = run.pendingReward; break;
+                    case "[shop]": target = run.shopOffer; break;
                     default: target = null; break;
                 }
             } else if (inMap) {
@@ -309,6 +351,7 @@ public class SpireRun {
                 switch (key) {
                     case "name": name = value; break;
                     case "life": life = Integer.parseInt(value); break;
+                    case "gold": gold = Integer.parseInt(value); break;
                     case "won": won = Integer.parseInt(value); break;
                     case "mulligan": mulligan = Boolean.parseBoolean(value); break;
                     case "over": over = Boolean.parseBoolean(value); break;
@@ -329,6 +372,7 @@ public class SpireRun {
         run.column = column;
         run.nodeDone = nodeDone;
         run.life = life;
+        run.gold = gold;
         run.fightsWon = won;
         run.mulliganUsed = mulligan;
         run.over = over;

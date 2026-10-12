@@ -1,5 +1,7 @@
 package forge.screens.match.winlose;
 
+import java.util.function.BiFunction;
+
 import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
@@ -39,6 +41,9 @@ public class ViewWinLose extends FOverlay implements IWinLoseView<FButton> {
     private final FTextArea txtLog;
     private final OutcomesPanel pnlOutcomes;
     private final GameView game;
+
+    /** A game mode can hand the next win/lose screen its own controller; it is used once. */
+    public static BiFunction<ViewWinLose, GameView, ControlWinLose> nextControl;
 
     public ViewWinLose(final GameView game0) {
         super(FSkinColor.get(Colors.CLR_OVERLAY).alphaColor(0.75f));
@@ -113,6 +118,10 @@ public class ViewWinLose extends FOverlay implements IWinLoseView<FButton> {
             break;
         default: // will catch it after switch
             break;
+        }
+        if (control == null && nextControl != null) {
+            control = nextControl.apply(this, game0);
+            nextControl = null;
         }
         if (control == null) {
             control = new ControlWinLose(this, game0);

@@ -22,6 +22,7 @@ import forge.game.player.RegisteredPlayer;
 import forge.gamemodes.match.HostedMatch;
 import forge.gamemodes.spire.SpireMap;
 import forge.gamemodes.spire.SpireRun;
+import forge.gamemodes.spire.SpireShop;
 import forge.gui.GuiBase;
 import forge.item.IPaperCard;
 import forge.item.PaperCard;
@@ -31,6 +32,8 @@ import forge.player.GamePlayerUtil;
 import forge.screens.LaunchScreen;
 import forge.screens.LoadingOverlay;
 import forge.screens.home.NewGameMenu;
+import forge.screens.match.MatchController;
+import forge.screens.match.winlose.ViewWinLose;
 import forge.toolbox.FButton;
 import forge.toolbox.FLabel;
 import forge.toolbox.FOptionPane;
@@ -57,15 +60,16 @@ public class SpireScreen extends LaunchScreen {
             + "Pick a commander deck. Your run starts with 12 random non-land cards from it "
             + "(one mulligan: swap a card for the top of the pool) and you flip 4 of them: "
             + "in fights a flipped card is a Spire Basic Card ({1}: 2 damage to a monster, "
-            + "or prevent the next 3 damage to a player).\n\n"
-            + "Each fight starts with 3 lands on the battlefield and the rest in a separate pile, "
+            + "or block 5 damage until your next turn).\n\n"
+            + "Each fight starts with 3 lands on the battlefield and the rest in a face-down pile you play from the top, "
             + "your commander in the command zone, and you draw up to 5 each turn. "
-            + "Life (40 max) carries over between fights. After each win, take 1 of 3 cards from your pool, or none.\n\n"
-            + "Climb the act's map: fights, campfires (heal 12, or flip / unflip a card) and the Rat King at the top. "
+            + "Life (40 max) carries over between fights. After each win you get 30 gold and take 1 of 3 cards from your pool, or none.\n\n"
+            + "Climb the act's map: fights, campfires (heal 12, or flip / unflip a card), shops (colorless cards for gold) and the Rat King at the top. "
             + "Beat him to win the run.";
 
     private static SpireRun run;
     private static boolean loaded;
+    private static Game lastRecorded;
 
     private final Random rng = new Random();
     private final FTextArea lblDesc = add(new FTextArea(false, INTRO));
@@ -117,6 +121,8 @@ public class SpireScreen extends LaunchScreen {
                 lblHint.setText("Tap your node to fight the " + fight.label + ".");
             } else if (run.isAtCampfire()) {
                 lblHint.setText("Tap the campfire to rest.");
+            } else if (run.isAtShop()) {
+                lblHint.setText("Tap the shop to buy cards.");
             } else {
                 lblHint.setText("Tap a glowing node to choose your path.");
             }
@@ -260,8 +266,48 @@ public class SpireScreen extends LaunchScreen {
             useCampfire();
             return;
         }
+        if (run.isAtShop()) {
+            openShop();
+            return;
+        }
         // otherwise the player picks the next node by tapping it on the map
         refresh();
+    }
+
+    /** The shop: pick a card to look at and buy it, until the player leaves. */
+    private void openShop() {
+        run.stockShop(SpireShop.rollOffer(rng, name -> FModel.getMagicDb().getCommonCards().getUniqueByName(name)));
+        saveRun();
+        final List<PaperCard> offer = new ArrayList<>(run.getShopOffer());
+        final String title = "Shop: you have " + run.getGold() + " gold. Common 50, uncommon 75, rare 100, mythic 150. Cancel to leave.";
+        GuiChoose.oneOrNone(title, offer, card -> {
+            if (card == null) {
+                FOptionPane.showConfirmDialog("Leave the shop? It closes behind you.", TITLE, "Leave", "Stay", true, leave -> {
+                    if (leave) {
+                        run.leaveShop();
+                        saveRun();
+                        refresh();
+                    } else {
+                        openShop();
+                    }
+                });
+                return;
+            }
+            final int price = SpireShop.price(card);
+            if (price > run.getGold()) {
+                FOptionPane.showMessageDialog(card.getName() + " costs " + price + " gold and you have " + run.getGold() + ".", TITLE);
+                openShop();
+                return;
+            }
+            FOptionPane.showConfirmDialog("Buy " + card.getName() + " for " + price + " gold?", TITLE, "Buy", "Back", true, yes -> {
+                if (yes) {
+                    run.buy(card);
+                    saveRun();
+                    refresh();
+                }
+                openShop();
+            });
+        });
     }
 
     private void useCampfire() {
@@ -312,17 +358,34 @@ public class SpireScreen extends LaunchScreen {
     }
 
     private void chooseReward() {
-        final String title = run.isVictory()
-                ? "The Rat King falls! Take one card for your deck (Cancel to take none)"
-                : "Victory! Take one card for your deck (Cancel to take none)";
-        GuiChoose.oneOrNone(title, new ArrayList<>(run.getPendingReward()), chosen -> {
-            run.takeReward(chosen);
-            saveRun();
-            if (run.isVictory()) {
+        chooseReward(() -> {
+            if (run != null && run.isVictory()) {
                 showVictory();
             }
             refresh();
         });
+    }
+
+    private static void chooseReward(final Runnable after) {
+        final String title = run.isVictory()
+                ? "The Rat King falls! Take one card for your deck (Cancel to take none)"
+                : "Victory! +" + SpireRun.FIGHT_GOLD + " gold (" + run.getGold() + " now). Take one card for your deck (Cancel to take none)";
+        GuiChoose.oneOrNone(title, new ArrayList<>(run.getPendingReward()), chosen -> {
+            run.takeReward(chosen);
+            saveRun();
+            after.run();
+        });
+    }
+
+    /** Called by the fight's win/lose screen: records the result and offers the reward right there. */
+    static void onFightScreenShown() {
+        final HostedMatch match = MatchController.getHostedMatch();
+        if (match != null) {
+            recordResult(run, match.getGame());
+        }
+        if (run != null && run.hasPendingReward()) {
+            chooseReward(() -> { });
+        }
     }
 
     private void showVictory() {
@@ -398,13 +461,16 @@ public class SpireScreen extends LaunchScreen {
         final HostedMatch hostedMatch = GuiBase.getInterface().hostMatch();
         // Runs on the game thread when the fight ends; the reward is offered back on this screen.
         hostedMatch.setEndGameHook(() -> recordResult(current, hostedMatch.getGame()));
+        ViewWinLose.nextControl = SpireWinLose::new;
         hostedMatch.startMatch(rules, variants, players, human, GuiBase.getInterface().getNewGuiGame());
     }
 
-    private static void recordResult(final SpireRun current, final Game game) {
-        if (game == null || current != run) {
+    /** Runs from the end-game hook and from the win/lose screen, whichever comes first; a fight counts once. */
+    private static synchronized void recordResult(final SpireRun current, final Game game) {
+        if (game == null || current == null || current != run || game == lastRecorded || !game.isGameOver()) {
             return;
         }
+        lastRecorded = game;
         if (game.getOutcome() != null && game.getOutcome().isWinner(GamePlayerUtil.getGuiPlayer())) {
             int life = 0;
             for (Player p : game.getRegisteredPlayers()) {

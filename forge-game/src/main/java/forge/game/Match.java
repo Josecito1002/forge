@@ -323,6 +323,10 @@ public class Match {
             player.initVariantsZones(psc);
 
             player.shuffle(null);
+            if (rules.hasLandPileInSideboard()) {
+                // the land pile is played from the top, so it starts in a random order
+                player.getZone(ZoneType.Sideboard).shuffle();
+            }
 
             if (isFirstGame) {
                 Map<DeckSection, List<? extends PaperCard>> cardsComplained = player.getController().complainCardsCantPlayWell(myDeck.getLeft());

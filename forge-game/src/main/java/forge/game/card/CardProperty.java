@@ -608,6 +608,11 @@ public class CardProperty {
             if (cards.isEmpty() || !card.equals(cards.get(0))) {
                 return false;
             }
+        } else if (property.equals("TopSideboard")) {
+            final CardCollectionView cards = card.getOwner().getCardsIn(ZoneType.Sideboard);
+            if (cards.isEmpty() || !card.equals(cards.get(0))) {
+                return false;
+            }
         } else if (property.startsWith("TopLibrary") || property.startsWith("BottomLibrary")) {
             CardCollectionView cards = card.getOwner().getCardsIn(ZoneType.Library);
             if (!property.equals("TopLibrary")) {

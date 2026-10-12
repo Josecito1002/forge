@@ -11,6 +11,7 @@ import forge.deck.Deck;
 import forge.deck.DeckSection;
 import forge.gamemodes.spire.SpireMap;
 import forge.gamemodes.spire.SpireRun;
+import forge.gamemodes.spire.SpireShop;
 import forge.item.PaperCard;
 import forge.model.FModel;
 
@@ -247,5 +248,86 @@ public class SpireRunTest extends AITest {
         forge.game.Game game = initAndCreateGame();
         forge.game.card.Card c = addCardToZone("Spire Runtime Test Card", game.getPlayers().get(0), forge.game.zone.ZoneType.Hand);
         AssertJUnit.assertEquals("Spire Runtime Test Card", c.getName());
+    }
+
+    @Test
+    public void everyShopCardExists() {
+        for (String name : SpireShop.CARD_NAMES) {
+            AssertJUnit.assertNotNull(name, FModel.getMagicDb().getCommonCards().getUniqueByName(name));
+        }
+    }
+
+    @Test
+    public void everyMapHasAShop() {
+        for (int seed = 0; seed < 50; seed++) {
+            SpireMap map = SpireMap.generate(new Random(seed));
+            boolean shop = false;
+            for (int r = 0; r < map.getRowCount(); r++) {
+                for (SpireMap.Node node : map.getRow(r)) {
+                    shop |= node.type == SpireMap.NodeType.SHOP;
+                }
+            }
+            AssertJUnit.assertTrue("seed " + seed, shop);
+        }
+    }
+
+    @Test
+    public void winsPayGoldThatBuysShopCards() {
+        SpireRun run = SpireRun.start(sourceDeck(), new Random(3));
+        AssertJUnit.assertEquals(SpireRun.STARTING_GOLD, run.getGold());
+        SpireRun first = SpireRun.start(sourceDeck(), new Random(3));
+        first.moveTo(first.getNextChoices().get(0));
+        first.recordWin(30);
+        AssertJUnit.assertEquals(SpireRun.STARTING_GOLD + SpireRun.FIGHT_GOLD, first.getGold());
+
+        // walk to the first shop, staying in its column
+        SpireMap.Node shop = null;
+        for (int r = 0; r < run.getMap().getRowCount() && shop == null; r++) {
+            for (SpireMap.Node node : run.getMap().getRow(r)) {
+                if (node.type == SpireMap.NodeType.SHOP && shop == null) {
+                    shop = node;
+                }
+            }
+        }
+        while (!run.isAtShop() && !run.getNextChoices().isEmpty()) {
+            SpireMap.Node next = run.getNextChoices().get(0);
+            for (SpireMap.Node node : run.getNextChoices()) {
+                if (Math.abs(node.column - shop.column) < Math.abs(next.column - shop.column)) {
+                    next = node;
+                }
+            }
+            run.moveTo(next);
+            if (run.getPendingFight() != null) {
+                run.recordWin(30);
+                run.takeReward(null);
+            } else if (run.isAtCampfire()) {
+                run.rest();
+            }
+        }
+        AssertJUnit.assertTrue(run.isAtShop());
+
+        int gold = run.getGold();
+        List<PaperCard> offer = SpireShop.rollOffer(new Random(4), name -> FModel.getMagicDb().getCommonCards().getUniqueByName(name));
+        AssertJUnit.assertEquals(SpireShop.OFFER_SIZE, offer.size());
+        run.stockShop(offer);
+        PaperCard cheapest = offer.get(0);
+        for (PaperCard card : offer) {
+            if (SpireShop.price(card) < SpireShop.price(cheapest)) {
+                cheapest = card;
+            }
+        }
+        AssertJUnit.assertTrue(run.buy(cheapest));
+        AssertJUnit.assertEquals(gold - SpireShop.price(cheapest), run.getGold());
+        AssertJUnit.assertTrue(run.getDeck().contains(cheapest));
+        AssertJUnit.assertFalse(run.getShopOffer().contains(cheapest));
+
+        // the offer and gold survive a save
+        SpireRun loaded = SpireRun.load(run.save(), request -> FModel.getMagicDb().getCommonCards().getCard(request.split("\\|")[0]));
+        AssertJUnit.assertEquals(run.getGold(), loaded.getGold());
+        AssertJUnit.assertEquals(run.getShopOffer().size(), loaded.getShopOffer().size());
+
+        run.leaveShop();
+        AssertJUnit.assertFalse(run.isAtShop());
+        AssertJUnit.assertTrue(run.getShopOffer().isEmpty());
     }
 }

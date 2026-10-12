@@ -15,9 +15,10 @@ public class SpireMap {
     /** Rows before the campfire row and the boss. */
     public static final int ROWS = 6;
     private static final double CAMPFIRE_CHANCE = 0.25;
+    private static final double SHOP_CHANCE = 0.12;
 
     public enum NodeType {
-        FIGHT("Fight"), CAMPFIRE("Campfire"), BOSS("Boss");
+        FIGHT("Fight"), CAMPFIRE("Campfire"), SHOP("Shop"), BOSS("Boss");
 
         public final String label;
         NodeType(String label) { this.label = label; }
@@ -42,7 +43,7 @@ public class SpireMap {
         public final int row;
         public final int column;
         public final NodeType type;
-        /** The monster for fight and boss nodes, null for a campfire. */
+        /** The monster for fight and boss nodes, null for a campfire or a shop. */
         public final Monster monster;
 
         Node(int row, int column, NodeType type, Monster monster) {
@@ -65,7 +66,8 @@ public class SpireMap {
     }
 
     /**
-     * Row 0 is all fights, rows 1 to ROWS-1 mix fights and campfires, then a campfire row and the boss.
+     * Row 0 is all fights, rows 1 to ROWS-1 mix fights, campfires and shops (at least one shop),
+     * then a campfire row and the boss.
      */
     public static SpireMap generate(Random rng) {
         SpireMap map = new SpireMap();
@@ -73,11 +75,26 @@ public class SpireMap {
         for (int r = 0; r < ROWS; r++) {
             List<Node> row = new ArrayList<>();
             for (int c = 0; c < WIDTH; c++) {
-                boolean campfire = r > 0 && rng.nextDouble() < CAMPFIRE_CHANCE;
-                row.add(campfire ? new Node(r, c, NodeType.CAMPFIRE, null)
-                        : new Node(r, c, NodeType.FIGHT, fights[rng.nextInt(fights.length)]));
+                double roll = r > 0 ? rng.nextDouble() : 1;
+                if (roll < CAMPFIRE_CHANCE) {
+                    row.add(new Node(r, c, NodeType.CAMPFIRE, null));
+                } else if (roll < CAMPFIRE_CHANCE + SHOP_CHANCE) {
+                    row.add(new Node(r, c, NodeType.SHOP, null));
+                } else {
+                    row.add(new Node(r, c, NodeType.FIGHT, fights[rng.nextInt(fights.length)]));
+                }
             }
             map.rows.add(row);
+        }
+        boolean hasShop = false;
+        for (List<Node> row : map.rows) {
+            for (Node node : row) {
+                hasShop |= node.type == NodeType.SHOP;
+            }
+        }
+        if (!hasShop) {
+            int r = ROWS / 2, c = rng.nextInt(WIDTH);
+            map.rows.get(r).set(c, new Node(r, c, NodeType.SHOP, null));
         }
         List<Node> rest = new ArrayList<>();
         for (int c = 0; c < WIDTH; c++) {

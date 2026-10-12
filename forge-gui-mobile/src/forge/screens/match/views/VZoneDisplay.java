@@ -1,12 +1,15 @@
 package forge.screens.match.views;
 
+import java.util.Collections;
 import java.util.List;
 
 import forge.Forge;
 import forge.Graphics;
+import forge.game.Game;
 import forge.game.card.CardView;
 import forge.game.player.PlayerView;
 import forge.game.zone.ZoneType;
+import forge.gamemodes.match.HostedMatch;
 import forge.screens.match.MatchController;
 import forge.toolbox.FCardPanel;
 import forge.toolbox.FDisplayObject;
@@ -28,7 +31,18 @@ public class VZoneDisplay extends VCardDisplayArea {
     @Override
     public void update() {
         FCollectionView<CardView> cards = player.getCards(zoneType);
+        if (zoneType == ZoneType.Sideboard && isTopOnlyLandPile() && !cards.isEmpty()) {
+            // a land pile is played from the top: the rest of it stays hidden
+            refreshCardPanels(Collections.singletonList(cards.get(0)));
+            return;
+        }
         refreshCardPanels(MatchController.instance.isNetGame() ? cards.threadSafeIterable() : cards);
+    }
+
+    private static boolean isTopOnlyLandPile() {
+        HostedMatch match = MatchController.getHostedMatch();
+        Game game = match == null ? null : match.getGame();
+        return game != null && game.getRules().hasLandPileInSideboard();
     }
 
     @Override

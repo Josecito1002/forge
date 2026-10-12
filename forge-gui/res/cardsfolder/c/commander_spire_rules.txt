@@ -1,7 +1,7 @@
 Name:Commander Spire Rules
 ManaCost:no cost
 Types:Enchantment
-S:Mode$ Continuous | Affected$ Land.YouOwn | AffectedZone$ Sideboard | MayPlay$ True | EffectZone$ Command | Description$ Your lands wait in a separate pile (your sideboard). You may play lands from it, still one land per turn.
+S:Mode$ Continuous | Affected$ Land.YouOwn+TopSideboard | AffectedZone$ Sideboard | MayPlay$ True | EffectZone$ Command | Description$ Your lands wait in a separate face-down pile (your sideboard). You may play the top land of it, still one land per turn.
 R:Event$ BeginPhase | ActiveZones$ Command | ValidPlayer$ You | Phase$ Draw | Skip$ True | Description$ Skip your draw step.
 T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Command | CheckSVar$ X | SVarCompare$ GE1 | Execute$ TrigDraw | TriggerDescription$ At the beginning of your upkeep, draw cards until you have 5 cards in hand.
 SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ X
@@ -18,4 +18,4 @@ SVar:Blk:Count$CardCounters.BLOCK
 SVar:PreventedDamage:Number$0
 T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Command | IsPresent$ Card.Self+counters_GE1_BLOCK | PresentZone$ Command | Execute$ TrigClearBlock | TriggerDescription$ At the beginning of your upkeep, remove all block counters from CARDNAME.
 SVar:TrigClearBlock:DB$ RemoveCounter | Defined$ Self | CounterType$ BLOCK | CounterNum$ All
-Oracle:Your lands wait in a separate pile (your sideboard). You may play lands from it, still one land per turn.\nSkip your draw step.\nAt the beginning of your upkeep, draw cards until you have 5 cards in hand.\nIf you would draw a card while your library is empty, shuffle your graveyard into your library, then draw.\nYou don't lose the game for drawing from an empty library.\nBlock: block counters on this card prevent damage that would be dealt to you. They go away at the beginning of your upkeep.
+Oracle:Your lands wait in a separate face-down pile (your sideboard). You may play the top land of it, still one land per turn.\nSkip your draw step.\nAt the beginning of your upkeep, draw cards until you have 5 cards in hand.\nIf you would draw a card while your library is empty, shuffle your graveyard into your library, then draw.\nYou don't lose the game for drawing from an empty library.\nBlock: block counters on this card prevent damage that would be dealt to you. They go away at the beginning of your upkeep.

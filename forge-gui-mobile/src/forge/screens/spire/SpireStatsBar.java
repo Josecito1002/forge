@@ -57,10 +57,10 @@ public class SpireStatsBar extends FDisplayObject {
                 barX, y, barW, icon, false, Align.center, true);
         y += icon + PAD;
 
-        // deck, pool, wins
+        // deck, gold, wins
         float cell = (w - PAD) / 3;
         drawStat(g, FSkinImage.DECKLIST, run.getDeckSize() + " (" + run.getFlipped().size() + " flipped)", PAD, y, cell, icon);
-        drawStat(g, FSkinImage.LIBRARY, run.getPool().size() + " in pool", PAD + cell, y, cell, icon);
+        drawStat(g, FSkinImage.QUEST_COINSTACK, run.getGold() + " gold", PAD + cell, y, cell, icon);
         drawStat(g, FSkinImage.STAR_FILLED, run.getFightsWon() + " won", PAD + cell * 2, y, cell, icon);
     }
 

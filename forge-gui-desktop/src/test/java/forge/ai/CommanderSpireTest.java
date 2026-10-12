@@ -66,15 +66,19 @@ public class CommanderSpireTest extends AITest {
     }
 
     @Test
-    public void landsCanBePlayedFromThePile() {
+    public void onlyTheTopLandOfThePileCanBePlayed() {
         Game game = initAndCreateGame();
         Player p = game.getPlayers().get(1);
         addCardToZone("Commander Spire Rules", p, ZoneType.Command);
-        Card forest = addCardToZone("Forest", p, ZoneType.Sideboard);
+        addCardToZone("Forest", p, ZoneType.Sideboard);
+        addCardToZone("Island", p, ZoneType.Sideboard);
         game.getAction().checkStateEffects(true);
 
-        AssertJUnit.assertTrue(p.getCardsActivatableInExternalZones(true).contains(forest));
-        AssertJUnit.assertFalse(forest.getAllPossibleAbilities(p, true).isEmpty());
+        Card top = p.getCardsIn(ZoneType.Sideboard).get(0);
+        Card below = p.getCardsIn(ZoneType.Sideboard).get(1);
+        AssertJUnit.assertTrue(p.getCardsActivatableInExternalZones(true).contains(top));
+        AssertJUnit.assertFalse(top.getAllPossibleAbilities(p, true).isEmpty());
+        AssertJUnit.assertFalse(p.getCardsActivatableInExternalZones(true).contains(below));
     }
 
     @Test
@@ -134,7 +138,7 @@ public class CommanderSpireTest extends AITest {
     }
 
     @Test
-    public void basicCardBlocksThreeDamageUntilYourNextTurn() {
+    public void basicCardBlocksFiveDamageUntilYourNextTurn() {
         Game game = initAndCreateGame();
         Player p = game.getPlayers().get(1);
         Player skel = game.getPlayers().get(0);
@@ -149,11 +153,11 @@ public class CommanderSpireTest extends AITest {
         AssertJUnit.assertFalse(sa.usesTargeting());
         sa.setActivatingPlayer(p);
         AbilityUtils.resolve(sa);
-        AssertJUnit.assertEquals(3, rules.getCounters(CounterType.getType("BLOCK")));
+        AssertJUnit.assertEquals(5, rules.getCounters(CounterType.getType("BLOCK")));
 
-        // it survives your end step and soaks the monster's 7 damage on its turn
+        // it survives your end step and soaks 5 of the monster's 7 damage on its turn
         goToMonsterMain1(game, skel);
-        AssertJUnit.assertEquals(36, p.getLife());
+        AssertJUnit.assertEquals(38, p.getLife());
         AssertJUnit.assertEquals(0, rules.getCounters(CounterType.getType("BLOCK")));
 
         // unused block goes away at the beginning of your upkeep
