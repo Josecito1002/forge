@@ -101,7 +101,7 @@ public class CommanderSpireTest extends AITest {
         Player rat = game.getPlayers().get(0);
         p.setLife(40, null);
         fillLibrary(p, 20);
-        addCardToZone("Spire Giant Rat", rat, ZoneType.Command);
+        addCardToZone("Spire Giant Rat", rat, ZoneType.Battlefield);
         for (int i = 0; i < 5; i++) {
             addCardToZone("Island", p, ZoneType.Hand);
         }
@@ -161,7 +161,7 @@ public class CommanderSpireTest extends AITest {
         Player p = game.getPlayers().get(1);
         Player skel = game.getPlayers().get(0);
         skel.setLife(14, null);
-        Card guardian = addCardToZone("Spire Skeleton Guardian", skel, ZoneType.Command);
+        Card guardian = addCardToZone("Spire Skeleton Guardian", skel, ZoneType.Battlefield);
         guardian.addCounterInternal(CounterType.getType("BLOCK"), 6, skel, false, null, null);
 
         Card axe = addCardToZone("Lava Axe", p, ZoneType.Hand);
@@ -188,7 +188,7 @@ public class CommanderSpireTest extends AITest {
         Player skel = game.getPlayers().get(0);
         p.setLife(40, null);
         fillLibrary(p, 20);
-        Card guardian = addCardToZone("Spire Skeleton Guardian", skel, ZoneType.Command);
+        Card guardian = addCardToZone("Spire Skeleton Guardian", skel, ZoneType.Battlefield);
         for (int i = 0; i < 5; i++) {
             addCardToZone("Island", p, ZoneType.Hand);
         }
@@ -213,7 +213,7 @@ public class CommanderSpireTest extends AITest {
         p.setLife(40, null);
         king.setLife(40, null);
         fillLibrary(p, 20);
-        addCardToZone("Spire Rat King", king, ZoneType.Command);
+        addCardToZone("Spire Rat King", king, ZoneType.Battlefield);
         for (int i = 0; i < 5; i++) {
             addCardToZone("Island", p, ZoneType.Hand);
         }
@@ -229,9 +229,56 @@ public class CommanderSpireTest extends AITest {
         king.setLife(20, null);
         goToMonsterMain1(game, king);
         AssertJUnit.assertTrue(p.getLife() <= afterHit - 5);
-        AssertJUnit.assertEquals(15, game.getCardsIn(ZoneType.Command).stream()
+        AssertJUnit.assertEquals(15, game.getCardsIn(ZoneType.Battlefield).stream()
                 .filter(c -> c.getName().equals("Spire Rat King")).findFirst().get()
                 .getCounters(CounterType.getType("BLOCK")));
+    }
+
+    @Test
+    public void monsterIsACreatureWhoseToughnessIsItsLife() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(1);
+        Player skel = game.getPlayers().get(0);
+        skel.setLife(28, null);
+        Card guardian = addCardToZone("Spire Skeleton Guardian", skel, ZoneType.Battlefield);
+        game.getAction().checkStateEffects(true);
+        AssertJUnit.assertEquals(28, guardian.getNetToughness());
+
+        // damage aimed at the creature hits the monster's life
+        Card bolt = addCardToZone("Lightning Bolt", p, ZoneType.Hand);
+        SpellAbility sa = bolt.getFirstSpellAbility();
+        sa.setActivatingPlayer(p);
+        sa.getTargets().add(guardian);
+        AbilityUtils.resolve(sa);
+        AssertJUnit.assertEquals(25, skel.getLife());
+        AssertJUnit.assertEquals(0, guardian.getDamage());
+
+        // block counters still soak damage aimed at the creature
+        guardian.addCounterInternal(CounterType.getType("BLOCK"), 2, skel, false, null, null);
+        Card bolt2 = addCardToZone("Lightning Bolt", p, ZoneType.Hand);
+        SpellAbility sa2 = bolt2.getFirstSpellAbility();
+        sa2.setActivatingPlayer(p);
+        sa2.getTargets().add(guardian);
+        AbilityUtils.resolve(sa2);
+        AssertJUnit.assertEquals(24, skel.getLife());
+    }
+
+    @Test
+    public void removalOnTheMonsterCostsItTenLife() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(1);
+        Player rat = game.getPlayers().get(0);
+        rat.setLife(20, null);
+        Card monster = addCardToZone("Spire Giant Rat", rat, ZoneType.Battlefield);
+
+        Card path = addCardToZone("Path to Exile", p, ZoneType.Hand);
+        SpellAbility sa = path.getFirstSpellAbility();
+        sa.setActivatingPlayer(p);
+        sa.getTargets().add(monster);
+        AbilityUtils.resolve(sa);
+
+        AssertJUnit.assertEquals(10, rat.getLife());
+        AssertJUnit.assertTrue(monster.isInZone(ZoneType.Battlefield));
     }
 
     private void goToMonsterMain1(Game game, Player monster) {

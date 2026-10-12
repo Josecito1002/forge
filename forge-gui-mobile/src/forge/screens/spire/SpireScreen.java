@@ -378,14 +378,14 @@ public class SpireScreen extends LaunchScreen {
         rulesCards.add(spireRules);
         human.addExtraCardsInCommandZone(rulesCards);
 
-        // The monster has no library: its whole behaviour lives in a command-zone card.
+        // The monster has no library: it is one creature on its battlefield whose toughness is its life.
         final RegisteredPlayer monster = new RegisteredPlayer(new Deck(enemy.label))
                 .setPlayer(GamePlayerUtil.createAiPlayer(enemy.label, 0));
         monster.setStartingLife(enemy.life);
         monster.setStartingHand(0);
         final List<IPaperCard> monsterCards = new ArrayList<>();
         monsterCards.add(monsterCard);
-        monster.addExtraCardsInCommandZone(monsterCards);
+        monster.addExtraCardsOnBattlefield(monsterCards);
 
         final List<RegisteredPlayer> players = new ArrayList<>();
         players.add(human);

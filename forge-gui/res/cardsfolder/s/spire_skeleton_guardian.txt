@@ -1,18 +1,26 @@
 Name:Spire Skeleton Guardian
 ManaCost:no cost
-Types:Enchantment
-R:Event$ GameLoss | ActiveZones$ Command | ValidPlayer$ You | ValidLoseReason$ Milled | Layer$ CantHappen | Description$ You don't lose the game for drawing from an empty library.
-R:Event$ DamageDone | ActiveZones$ Command | ValidTarget$ You | IsPresent$ Card.Self+counters_GE1_BLOCK | PresentZone$ Command | PreventionEffect$ True | ReplaceWith$ DBBlock | Description$ Block: if damage would be dealt to you, prevent that much of it and remove that many block counters from CARDNAME.
+Types:Creature Skeleton Soldier
+PT:0/*
+S:Mode$ Continuous | CharacteristicDefining$ True | SetToughness$ HP | Description$ CARDNAME's toughness is equal to your life total: it is the monster's HP.
+SVar:HP:Count$YourLifeTotal
+S:Mode$ CantAttack,CantBlock | ValidCard$ Card.Self | Description$ CARDNAME can't attack or block; it acts through its intents.
+R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self | DamageTarget$ You | ReplaceWith$ DmgYou | Description$ Damage that would be dealt to CARDNAME is dealt to you instead.
+SVar:DmgYou:DB$ ReplaceEffect | VarName$ Affected | VarValue$ You | VarType$ Player
+R:Event$ Moved | ActiveZones$ Battlefield | Origin$ Battlefield | ValidCard$ Card.Self | ReplaceWith$ Banished | Description$ If CARDNAME would leave the battlefield, it stays and you lose 10 life instead.
+SVar:Banished:DB$ LoseLife | Defined$ You | LifeAmount$ 10
+R:Event$ GameLoss | ActiveZones$ Battlefield | ValidPlayer$ You | ValidLoseReason$ Milled | Layer$ CantHappen | Description$ You don't lose the game for drawing from an empty library.
+R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ You | IsPresent$ Card.Self+counters_GE1_BLOCK | PresentZone$ Battlefield | PreventionEffect$ True | ReplaceWith$ DBBlock | Description$ Block: if damage would be dealt to you, prevent that much of it and remove that many block counters from CARDNAME.
 SVar:DBBlock:DB$ ReplaceDamage | Amount$ Blk | SubAbility$ DBUseBlock
 SVar:DBUseBlock:DB$ RemoveCounter | Defined$ Self | CounterType$ BLOCK | CounterNum$ PreventedDamage
 SVar:Blk:Count$CardCounters.BLOCK
 SVar:PreventedDamage:Number$0
-T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ Opponent | TriggerZones$ Command | IsPresent$ Card.Self+counters_GE1_BLOCK | PresentZone$ Command | Execute$ TrigClearBlock | TriggerDescription$ At the beginning of each opponent's end step, remove all block counters from CARDNAME.
+T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ Opponent | TriggerZones$ Battlefield | IsPresent$ Card.Self+counters_GE1_BLOCK | PresentZone$ Battlefield | Execute$ TrigClearBlock | TriggerDescription$ At the beginning of each opponent's end step, remove all block counters from CARDNAME.
 SVar:TrigClearBlock:DB$ RemoveCounter | Defined$ Self | CounterType$ BLOCK | CounterNum$ All
-T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Command | IsPresent$ Card.Self+counters_EQ0_TURN | PresentZone$ Command | Execute$ I0 | TriggerDescription$ Intent 1 of 4: CARDNAME attacks for 7 damage to each opponent.
-T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Command | IsPresent$ Card.Self+counters_EQ1_TURN | PresentZone$ Command | Execute$ I1 | TriggerDescription$ Intent 2 of 4: CARDNAME raises its shield: block 10.
-T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Command | IsPresent$ Card.Self+counters_EQ2_TURN | PresentZone$ Command | Execute$ I2 | TriggerDescription$ Intent 3 of 4: CARDNAME strikes for 5 damage and blocks 5.
-T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Command | IsPresent$ Card.Self+counters_EQ3_TURN | PresentZone$ Command | Execute$ I3 | TriggerDescription$ Intent 4 of 4: CARDNAME attacks for 7 damage to each opponent.
+T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | IsPresent$ Card.Self+counters_EQ0_TURN | PresentZone$ Battlefield | Execute$ I0 | TriggerDescription$ Intent 1 of 4: CARDNAME attacks for 7 damage to each opponent.
+T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | IsPresent$ Card.Self+counters_EQ1_TURN | PresentZone$ Battlefield | Execute$ I1 | TriggerDescription$ Intent 2 of 4: CARDNAME raises its shield: block 10.
+T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | IsPresent$ Card.Self+counters_EQ2_TURN | PresentZone$ Battlefield | Execute$ I2 | TriggerDescription$ Intent 3 of 4: CARDNAME strikes for 5 damage and blocks 5.
+T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | IsPresent$ Card.Self+counters_EQ3_TURN | PresentZone$ Battlefield | Execute$ I3 | TriggerDescription$ Intent 4 of 4: CARDNAME attacks for 7 damage to each opponent.
 SVar:I0:DB$ DealDamage | Defined$ Opponent | NumDmg$ 7 | SubAbility$ DBStep
 SVar:I1:DB$ PutCounter | Defined$ Self | CounterType$ BLOCK | CounterNum$ 10 | SubAbility$ DBStep
 SVar:I2:DB$ DealDamage | Defined$ Opponent | NumDmg$ 5 | SubAbility$ I2b
@@ -20,4 +28,4 @@ SVar:I2b:DB$ PutCounter | Defined$ Self | CounterType$ BLOCK | CounterNum$ 5 | S
 SVar:I3:DB$ DealDamage | Defined$ Opponent | NumDmg$ 7 | SubAbility$ DBReset
 SVar:DBStep:DB$ PutCounter | Defined$ Self | CounterType$ TURN | CounterNum$ 1
 SVar:DBReset:DB$ RemoveCounter | Defined$ Self | CounterType$ TURN | CounterNum$ All
-Oracle:You don't lose the game for drawing from an empty library.\nBlock: if damage would be dealt to you, prevent that much of it and remove that many block counters from Spire Skeleton Guardian.\nAt the beginning of each opponent's end step, remove all block counters.\nEach of your upkeeps it acts in a cycle (TURN counters show the step): 7 damage · block 10 · 5 damage and block 5 · 7 damage.
+Oracle:You don't lose the game for drawing from an empty library.\nBlock: if damage would be dealt to you, prevent that much of it and remove that many block counters from Spire Skeleton Guardian.\nAt the beginning of each opponent's end step, remove all block counters.\nEach of your upkeeps it acts in a cycle (TURN counters show the step): 7 damage · block 10 · 5 damage and block 5 · 7 damage.\nIts toughness is its HP (your life total). It can't attack or block. Damage dealt to it is dealt to you instead. If it would leave the battlefield, it stays and you lose 10 life instead.
