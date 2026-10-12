@@ -6,6 +6,7 @@ import org.testng.annotations.Test;
 import forge.game.Game;
 import forge.game.ability.AbilityUtils;
 import forge.game.card.Card;
+import forge.game.card.CounterType;
 import forge.game.phase.PhaseType;
 import forge.game.player.Player;
 import forge.game.spellability.SpellAbility;
@@ -152,5 +153,91 @@ public class CommanderSpireTest extends AITest {
         AbilityUtils.resolve(hit);
 
         AssertJUnit.assertEquals(38, p.getLife());
+    }
+
+    @Test
+    public void skeletonGuardianBlocksDamageUntilTheEndOfYourTurn() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(1);
+        Player skel = game.getPlayers().get(0);
+        skel.setLife(14, null);
+        Card guardian = addCardToZone("Spire Skeleton Guardian", skel, ZoneType.Command);
+        guardian.addCounterInternal(CounterType.getType("BLOCK"), 6, skel, false, null, null);
+
+        Card axe = addCardToZone("Lava Axe", p, ZoneType.Hand);
+        SpellAbility hit = axe.getFirstSpellAbility();
+        hit.setActivatingPlayer(p);
+        hit.getTargets().add(skel);
+        AbilityUtils.resolve(hit);
+        AssertJUnit.assertEquals(14, skel.getLife());
+        AssertJUnit.assertEquals(1, guardian.getCounters(CounterType.getType("BLOCK")));
+
+        Card axe2 = addCardToZone("Lava Axe", p, ZoneType.Hand);
+        SpellAbility hit2 = axe2.getFirstSpellAbility();
+        hit2.setActivatingPlayer(p);
+        hit2.getTargets().add(skel);
+        AbilityUtils.resolve(hit2);
+        AssertJUnit.assertEquals(10, skel.getLife());
+        AssertJUnit.assertEquals(0, guardian.getCounters(CounterType.getType("BLOCK")));
+    }
+
+    @Test
+    public void skeletonGuardianFollowsItsCycle() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(1);
+        Player skel = game.getPlayers().get(0);
+        p.setLife(40, null);
+        fillLibrary(p, 20);
+        Card guardian = addCardToZone("Spire Skeleton Guardian", skel, ZoneType.Command);
+        for (int i = 0; i < 5; i++) {
+            addCardToZone("Island", p, ZoneType.Hand);
+        }
+
+        int[] expectedLife = {34, 34, 29, 23, 17};
+        int[] expectedBlock = {0, 6, 3, 0, 0};
+        for (int i = 0; i < expectedLife.length; i++) {
+            do {
+                playUntilNextTurn(game);
+            } while (!game.isGameOver() && !game.getPhaseHandler().isPlayerTurn(skel));
+            playUntilPhase(game, PhaseType.MAIN1);
+            AssertJUnit.assertEquals(expectedLife[i], p.getLife());
+            AssertJUnit.assertEquals(expectedBlock[i], guardian.getCounters(CounterType.getType("BLOCK")));
+        }
+    }
+
+    @Test
+    public void ratKingActsTwiceInPhaseTwo() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(1);
+        Player king = game.getPlayers().get(0);
+        p.setLife(40, null);
+        king.setLife(40, null);
+        fillLibrary(p, 20);
+        addCardToZone("Spire Rat King", king, ZoneType.Command);
+        for (int i = 0; i < 5; i++) {
+            addCardToZone("Island", p, ZoneType.Hand);
+        }
+
+        // phase 1: rats, then 8 damage
+        goToMonsterMain1(game, king);
+        AssertJUnit.assertEquals(2, countCardsWithName(game, "Rat Token"));
+        goToMonsterMain1(game, king);
+        int afterHit = p.getLife();
+        AssertJUnit.assertTrue("rats may attack too, but the 8 damage landed", afterHit <= 32);
+
+        // phase 2: block 10 and 6 damage in the same upkeep
+        king.setLife(20, null);
+        goToMonsterMain1(game, king);
+        AssertJUnit.assertTrue(p.getLife() <= afterHit - 6);
+        AssertJUnit.assertEquals(10, game.getCardsIn(ZoneType.Command).stream()
+                .filter(c -> c.getName().equals("Spire Rat King")).findFirst().get()
+                .getCounters(CounterType.getType("BLOCK")));
+    }
+
+    private void goToMonsterMain1(Game game, Player monster) {
+        do {
+            playUntilNextTurn(game);
+        } while (!game.isGameOver() && !game.getPhaseHandler().isPlayerTurn(monster));
+        playUntilPhase(game, PhaseType.MAIN1);
     }
 }

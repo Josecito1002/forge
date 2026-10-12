@@ -9,6 +9,7 @@ import org.testng.annotations.Test;
 
 import forge.deck.Deck;
 import forge.deck.DeckSection;
+import forge.gamemodes.spire.SpireMap;
 import forge.gamemodes.spire.SpireRun;
 import forge.item.PaperCard;
 import forge.model.FModel;
@@ -135,5 +136,96 @@ public class SpireRunTest extends AITest {
         AssertJUnit.assertEquals(run.getFlipped(), loaded.getFlipped());
         AssertJUnit.assertEquals(run.getPool(), loaded.getPool());
         AssertJUnit.assertEquals(run.getPendingReward(), loaded.getPendingReward());
+    }
+
+    @Test
+    public void mapHasFightsThenCampfiresThenTheBoss() {
+        SpireMap map = SpireMap.generate(new Random(9));
+        AssertJUnit.assertEquals(SpireMap.ROWS + 2, map.getRowCount());
+        for (SpireMap.Node node : map.getRow(0)) {
+            AssertJUnit.assertEquals(SpireMap.NodeType.FIGHT, node.type);
+            AssertJUnit.assertNotNull(node.monster);
+        }
+        for (SpireMap.Node node : map.getRow(SpireMap.ROWS)) {
+            AssertJUnit.assertEquals(SpireMap.NodeType.CAMPFIRE, node.type);
+        }
+        List<SpireMap.Node> top = map.getRow(SpireMap.ROWS + 1);
+        AssertJUnit.assertEquals(1, top.size());
+        AssertJUnit.assertEquals(SpireMap.Monster.RAT_KING, top.get(0).monster);
+
+        AssertJUnit.assertEquals(SpireMap.WIDTH, map.getNextChoices(null).size());
+        AssertJUnit.assertEquals(2, map.getNextChoices(map.getNode(0, 0)).size());
+        AssertJUnit.assertEquals(3, map.getNextChoices(map.getNode(0, 1)).size());
+        AssertJUnit.assertEquals(1, map.getNextChoices(map.getNode(SpireMap.ROWS, 0)).size());
+    }
+
+    @Test
+    public void climbingTheMapToTheBossWinsTheRun() {
+        SpireRun run = SpireRun.start(sourceDeck(), new Random(10));
+        AssertJUnit.assertNull(run.getCurrentNode());
+        int campfires = 0;
+        while (!run.isVictory()) {
+            List<SpireMap.Node> choices = run.getNextChoices();
+            AssertJUnit.assertFalse(choices.isEmpty());
+            run.moveTo(choices.get(0));
+            if (run.isAtCampfire()) {
+                campfires++;
+                run.rest();
+            } else {
+                AssertJUnit.assertNotNull(run.getPendingFight());
+                run.recordWin(20);
+                if (!run.isVictory()) {
+                    run.takeReward(null);
+                }
+            }
+            AssertJUnit.assertTrue(run.isNodeDone());
+        }
+        AssertJUnit.assertTrue(campfires >= 1);
+        AssertJUnit.assertEquals(SpireRun.MAX_LIFE, run.getLife());
+        AssertJUnit.assertEquals(SpireRun.BOSS_REWARD_REVEAL, run.getPendingReward().size());
+        AssertJUnit.assertTrue(run.getNextChoices().isEmpty());
+    }
+
+    @Test
+    public void campfireHealsFlipsOrUnflips() {
+        SpireRun run = SpireRun.start(sourceDeck(), new Random(11));
+        // walk up to the campfire row
+        while (run.getCurrentNode() == null || run.getCurrentNode().row < SpireMap.ROWS) {
+            run.moveTo(run.getNextChoices().get(0));
+            if (run.isAtCampfire()) {
+                run.rest();
+            } else {
+                run.recordWin(10);
+                run.takeReward(null);
+            }
+        }
+        // the last step above was a rest at the campfire row: 10 + 12
+        AssertJUnit.assertEquals(22, run.getLife());
+
+        SpireRun other = SpireRun.load(run.save(), request -> FModel.getMagicDb().getCommonCards().getCard(request));
+        AssertJUnit.assertEquals(run.getCurrentNode().row, other.getCurrentNode().row);
+        AssertJUnit.assertEquals(run.getCurrentNode().column, other.getCurrentNode().column);
+        AssertJUnit.assertTrue(other.isNodeDone());
+        AssertJUnit.assertEquals(run.getMap().save(), other.getMap().save());
+    }
+
+    @Test
+    public void campfireFlipAndUnflip() {
+        SpireRun run = SpireRun.start(sourceDeck(), new Random(12));
+        PaperCard card = run.getDeck().get(0);
+        // find a path with a campfire in rows 1..ROWS
+        while (!run.isAtCampfire()) {
+            run.moveTo(run.getNextChoices().get(0));
+            if (run.getPendingFight() != null) {
+                run.recordWin(30);
+                run.takeReward(null);
+            }
+        }
+        run.flipAtCampfire(card);
+        AssertJUnit.assertTrue(run.getFlipped().contains(card));
+        AssertJUnit.assertTrue(run.isNodeDone());
+        // a used campfire does nothing more
+        run.unflipAtCampfire(card);
+        AssertJUnit.assertTrue(run.getFlipped().contains(card));
     }
 }

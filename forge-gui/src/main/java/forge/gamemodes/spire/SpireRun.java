@@ -22,6 +22,8 @@ public class SpireRun {
     public static final int FLIPPED_COUNT = 4;
     public static final int REWARD_REVEAL = 3;
     public static final int STARTING_LANDS = 3;
+    public static final int BOSS_REWARD_REVEAL = 5;
+    public static final int CAMPFIRE_HEAL = 12;
 
     private final String deckName;
     private final List<PaperCard> commanders = new ArrayList<>();
@@ -34,6 +36,12 @@ public class SpireRun {
     private int fightsWon;
     private boolean mulliganUsed;
     private boolean over;
+    private boolean victory;
+    private SpireMap map;
+    private int row = -1;
+    private int column = -1;
+    /** Whether the current node (fight won or campfire used) is finished. */
+    private boolean nodeDone = true;
 
     /** What a single fight needs: the deck to register and the lands that start on the battlefield. */
     public static class Fight {
@@ -60,6 +68,7 @@ public class SpireRun {
                 run.pool.add(card);
             }
         }
+        run.map = SpireMap.generate(rng);
         Collections.shuffle(run.pool, rng);
         while (run.deck.size() < STARTING_DECK_SIZE && !run.pool.isEmpty()) {
             run.deck.add(run.pool.removeFirst());
@@ -79,6 +88,63 @@ public class SpireRun {
     public int getLife() { return life; }
     public int getFightsWon() { return fightsWon; }
     public boolean isOver() { return over; }
+    /** The boss is beaten: the run ends in victory once its reward is chosen. */
+    public boolean isVictory() { return victory; }
+    public SpireMap getMap() { return map; }
+    public boolean isNodeDone() { return nodeDone; }
+
+    /** The node the player stands on, or null before the first row. */
+    public SpireMap.Node getCurrentNode() {
+        return row < 0 ? null : map.getNode(row, column);
+    }
+
+    public List<SpireMap.Node> getNextChoices() {
+        return nodeDone && !over && !victory ? map.getNextChoices(getCurrentNode()) : Collections.emptyList();
+    }
+
+    public void moveTo(SpireMap.Node node) {
+        if (!getNextChoices().contains(node)) {
+            return;
+        }
+        row = node.row;
+        column = node.column;
+        nodeDone = false;
+    }
+
+    /** The fight waiting on the current node, or null when there is none. */
+    public SpireMap.Monster getPendingFight() {
+        SpireMap.Node node = getCurrentNode();
+        return node != null && !nodeDone && node.monster != null ? node.monster : null;
+    }
+
+    public boolean isAtCampfire() {
+        SpireMap.Node node = getCurrentNode();
+        return node != null && !nodeDone && node.type == SpireMap.NodeType.CAMPFIRE;
+    }
+
+    /** Campfire: heal 12 (up to 40). */
+    public void rest() {
+        if (isAtCampfire()) {
+            life = Math.min(MAX_LIFE, life + CAMPFIRE_HEAL);
+            nodeDone = true;
+        }
+    }
+
+    /** Campfire: flip one normal card. */
+    public void flipAtCampfire(PaperCard card) {
+        if (isAtCampfire() && deck.contains(card)) {
+            flip(Collections.singletonList(card));
+            nodeDone = true;
+        }
+    }
+
+    /** Campfire: turn one flipped card back to its normal side. */
+    public void unflipAtCampfire(PaperCard card) {
+        if (isAtCampfire() && flipped.contains(card)) {
+            unflip(card);
+            nodeDone = true;
+        }
+    }
     public boolean canMulligan() { return !mulliganUsed && !pool.isEmpty(); }
     public boolean hasPendingReward() { return !pendingReward.isEmpty(); }
     public List<PaperCard> getPendingReward() { return Collections.unmodifiableList(pendingReward); }
@@ -128,12 +194,20 @@ public class SpireRun {
         return new Fight(fightDeck, startingLands);
     }
 
-    /** A won fight: life carries over (up to 40) and 3 pool cards are revealed as the reward. */
+    /**
+     * A won fight: life carries over (up to 40) and 3 pool cards are revealed as the reward.
+     * The boss reveals 5, heals fully and wins the run.
+     */
     public void recordWin(int lifeLeft) {
-        life = Math.max(1, Math.min(MAX_LIFE, lifeLeft));
+        SpireMap.Node node = getCurrentNode();
+        boolean boss = node != null && node.type == SpireMap.NodeType.BOSS;
+        life = boss ? MAX_LIFE : Math.max(1, Math.min(MAX_LIFE, lifeLeft));
         fightsWon++;
+        nodeDone = true;
+        victory |= boss;
         takeReward(null); // an unclaimed earlier reward goes back to the pool
-        for (int i = 0; i < REWARD_REVEAL && !pool.isEmpty(); i++) {
+        int reveal = boss ? BOSS_REWARD_REVEAL : REWARD_REVEAL;
+        for (int i = 0; i < reveal && !pool.isEmpty(); i++) {
             pendingReward.add(pool.removeFirst());
         }
     }
@@ -165,12 +239,18 @@ public class SpireRun {
         lines.add("won=" + fightsWon);
         lines.add("mulligan=" + mulliganUsed);
         lines.add("over=" + over);
+        lines.add("victory=" + victory);
+        lines.add("row=" + row);
+        lines.add("column=" + column);
+        lines.add("nodeDone=" + nodeDone);
         saveCards(lines, "commander", commanders);
         saveCards(lines, "lands", lands);
         saveCards(lines, "deck", deck);
         saveCards(lines, "flipped", flipped);
         saveCards(lines, "pool", pool);
         saveCards(lines, "reward", pendingReward);
+        lines.add("[map]");
+        lines.addAll(map.save());
         return lines;
     }
 
@@ -185,7 +265,10 @@ public class SpireRun {
     public static SpireRun load(List<String> lines, Function<String, PaperCard> findCard) {
         String name = "";
         int life = MAX_LIFE, won = 0;
-        boolean mulligan = false, over = false;
+        boolean mulligan = false, over = false, victory = false, nodeDone = true;
+        int row = -1, column = -1;
+        List<String> mapLines = null;
+        boolean inMap = false;
         List<PaperCard> target = null;
         SpireRun run = null;
         for (String line : lines) {
@@ -197,6 +280,10 @@ public class SpireRun {
                 if (run == null) {
                     run = new SpireRun(name);
                 }
+                inMap = line.equals("[map]");
+                if (inMap) {
+                    mapLines = new ArrayList<>();
+                }
                 switch (line) {
                     case "[commander]": target = run.commanders; break;
                     case "[lands]": target = run.lands; break;
@@ -206,6 +293,8 @@ public class SpireRun {
                     case "[reward]": target = run.pendingReward; break;
                     default: target = null; break;
                 }
+            } else if (inMap) {
+                mapLines.add(line);
             } else if (target != null) {
                 PaperCard card = findCard.apply(line);
                 if (card != null) {
@@ -223,13 +312,22 @@ public class SpireRun {
                     case "won": won = Integer.parseInt(value); break;
                     case "mulligan": mulligan = Boolean.parseBoolean(value); break;
                     case "over": over = Boolean.parseBoolean(value); break;
+                    case "victory": victory = Boolean.parseBoolean(value); break;
+                    case "row": row = Integer.parseInt(value); break;
+                    case "column": column = Integer.parseInt(value); break;
+                    case "nodeDone": nodeDone = Boolean.parseBoolean(value); break;
                     default: break;
                 }
             }
         }
-        if (run == null || run.commanders.isEmpty()) {
+        if (run == null || run.commanders.isEmpty() || mapLines == null || mapLines.isEmpty()) {
             return null;
         }
+        run.map = SpireMap.load(mapLines);
+        run.victory = victory;
+        run.row = row;
+        run.column = column;
+        run.nodeDone = nodeDone;
         run.life = life;
         run.fightsWon = won;
         run.mulliganUsed = mulligan;

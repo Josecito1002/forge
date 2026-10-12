@@ -17,6 +17,7 @@ import forge.game.GameType;
 import forge.game.player.Player;
 import forge.game.player.RegisteredPlayer;
 import forge.gamemodes.match.HostedMatch;
+import forge.gamemodes.spire.SpireMap;
 import forge.gamemodes.spire.SpireRun;
 import forge.gui.GuiBase;
 import forge.item.IPaperCard;
@@ -43,8 +44,6 @@ import forge.util.Utils;
 public class SpireScreen extends LaunchScreen {
     private static final float PADDING = Utils.scale(10);
     private static final int HAND_SIZE = 5;
-    private static final int RAT_LIFE = 10;
-    private static final String RAT_CARD = "Spire Giant Rat";
     private static final String RULES_CARD = "Commander Spire Rules";
     private static final String BASIC_CARD = "Spire Basic Card";
     private static final String TITLE = "Commander Spire";
@@ -58,7 +57,9 @@ public class SpireScreen extends LaunchScreen {
             + "or prevent the next 3 damage to a player).\n\n"
             + "Each fight starts with 3 lands on the battlefield and the rest in a separate pile, "
             + "your commander in the command zone, and you draw up to 5 each turn. "
-            + "Life (40 max) carries over between fights. After each win, take 1 of 3 cards from your pool, or none.";
+            + "Life (40 max) carries over between fights. After each win, take 1 of 3 cards from your pool, or none.\n\n"
+            + "Climb the act's map: fights, campfires (heal 12, or flip / unflip a card) and the Rat King at the top. "
+            + "Beat him to win the run.";
 
     private static SpireRun run;
     private static boolean loaded;
@@ -80,7 +81,9 @@ public class SpireScreen extends LaunchScreen {
             loaded = true;
             run = loadRun();
         }
-        if (run != null && run.isOver()) {
+        if (run != null && run.isVictory() && !run.hasPendingReward()) {
+            showVictory();
+        } else if (run != null && run.isOver()) {
             final int won = run.getFightsWon();
             clearRun();
             FOptionPane.showMessageDialog("You fell in the Spire after winning " + won + " fight(s). The run is over.", TITLE);
@@ -102,18 +105,65 @@ public class SpireScreen extends LaunchScreen {
               .append(run.getFlipped().size()).append(" flipped)\n");
             sb.append("Pool: ").append(run.getPool().size()).append(" cards\n");
             sb.append("Lands: ").append(run.getLands().size()).append("\n\n");
-            sb.append("Deck:\n");
+            appendMap(sb);
+            sb.append("\nDeck:\n");
             for (PaperCard card : run.getDeck()) {
                 sb.append("  ").append(card.getName()).append("\n");
             }
             for (PaperCard card : run.getFlipped()) {
                 sb.append("  ").append(card.getName()).append(" (flipped)\n");
             }
-            sb.append("\nPress Start for the next fight: the Giant Rat (").append(RAT_LIFE).append(" life).");
             lblDesc.setText(sb.toString());
         }
         btnAbandon.setVisible(run != null);
         revalidate();
+    }
+
+    /** The act map, boss on top. The current node is in [brackets]; the nodes you can move to next start with >. */
+    private void appendMap(final StringBuilder sb) {
+        final SpireMap map = run.getMap();
+        final SpireMap.Node current = run.getCurrentNode();
+        final List<SpireMap.Node> next = run.getNextChoices();
+        sb.append("Map (Start moves you up; you can go to the same column or the one next to it):\n");
+        for (int r = map.getRowCount() - 1; r >= 0; r--) {
+            sb.append(r + 1).append(". ");
+            boolean first = true;
+            for (SpireMap.Node node : map.getRow(r)) {
+                if (!first) {
+                    sb.append("  |  ");
+                }
+                first = false;
+                final String text = columnName(node) + " " + nodeLabel(node);
+                if (node == current) {
+                    sb.append('[').append(text).append(']');
+                } else if (next.contains(node)) {
+                    sb.append("> ").append(text);
+                } else {
+                    sb.append(text);
+                }
+            }
+            sb.append("\n");
+        }
+        final SpireMap.Monster fight = run.getPendingFight();
+        if (fight != null) {
+            sb.append("\nPress Start to fight the ").append(fight.label).append(" (").append(fight.life).append(" life).\n");
+        } else if (run.isAtCampfire()) {
+            sb.append("\nPress Start to use the campfire.\n");
+        } else {
+            sb.append("\nPress Start to choose your next node.\n");
+        }
+    }
+
+    private static String columnName(final SpireMap.Node node) {
+        return node.type == SpireMap.NodeType.BOSS ? "" : String.valueOf((char) ('A' + node.column)) + ":";
+    }
+
+    private static String nodeLabel(final SpireMap.Node node) {
+        switch (node.type) {
+            case FIGHT: return node.monster.label;
+            case BOSS: return "BOSS " + node.monster.label;
+            default: return "Campfire";
+        }
     }
 
     @Override
@@ -131,7 +181,7 @@ public class SpireScreen extends LaunchScreen {
     @Override
     protected void startMatch() {
         if (run != null) {
-            LoadingOverlay.show("Climbing the Spire...", true, this::hostFight);
+            advance();
             return;
         }
         final List<DeckProxy> decks = new ArrayList<>();
@@ -166,23 +216,108 @@ public class SpireScreen extends LaunchScreen {
             final List<PaperCard> cards = new ArrayList<>(newRun.getDeck());
             final int count = Math.min(SpireRun.FLIPPED_COUNT, cards.size());
             GuiChoose.many("Flip " + count + " cards", "Flipped cards are Spire Basic Cards in fights",
-                    count, cards, null, flipped -> {
+                    count, count, cards, null, flipped -> {
                 newRun.flip(flipped);
                 run = newRun;
                 saveRun();
                 refresh();
-                LoadingOverlay.show("Entering the Spire...", true, this::hostFight);
+                advance();
             });
         });
     }
 
-    private void chooseReward() {
-        GuiChoose.oneOrNone("Victory! Take one card for your deck (Cancel to take none)",
-                new ArrayList<>(run.getPendingReward()), chosen -> {
-            run.takeReward(chosen);
+    /** The next step of the run: the pending fight, the campfire, or picking the next node on the map. */
+    private void advance() {
+        final SpireMap.Monster fight = run.getPendingFight();
+        if (fight != null) {
+            LoadingOverlay.show("Climbing the Spire...", true, () -> hostFight(fight));
+            return;
+        }
+        if (run.isAtCampfire()) {
+            useCampfire();
+            return;
+        }
+        final List<SpireMap.Node> choices = run.getNextChoices();
+        if (choices.isEmpty()) {
+            return;
+        }
+        GuiChoose.oneOrNone("Choose your next node", choices, node -> {
+            if (node == null) {
+                return;
+            }
+            run.moveTo(node);
             saveRun();
             refresh();
+            advance();
         });
+    }
+
+    private void useCampfire() {
+        final String rest = "Rest: heal " + SpireRun.CAMPFIRE_HEAL + " (life " + run.getLife() + " -> "
+                + Math.min(SpireRun.MAX_LIFE, run.getLife() + SpireRun.CAMPFIRE_HEAL) + ")";
+        final String flip = "Flip a card (it becomes a Spire Basic Card)";
+        final String unflip = "Turn a flipped card back to its normal side";
+        final List<String> options = new ArrayList<>();
+        options.add(rest);
+        if (!run.getDeck().isEmpty()) {
+            options.add(flip);
+        }
+        if (!run.getFlipped().isEmpty()) {
+            options.add(unflip);
+        }
+        GuiChoose.oneOrNone("Campfire", options, option -> {
+            if (option == null) {
+                return;
+            }
+            if (option.equals(rest)) {
+                run.rest();
+                campfireDone();
+            } else if (option.equals(flip)) {
+                GuiChoose.oneOrNone("Flip which card?", new ArrayList<>(run.getDeck()), card -> {
+                    if (card == null) {
+                        useCampfire();
+                        return;
+                    }
+                    run.flipAtCampfire(card);
+                    campfireDone();
+                });
+            } else {
+                GuiChoose.oneOrNone("Turn which card back?", new ArrayList<>(run.getFlipped()), card -> {
+                    if (card == null) {
+                        useCampfire();
+                        return;
+                    }
+                    run.unflipAtCampfire(card);
+                    campfireDone();
+                });
+            }
+        });
+    }
+
+    private void campfireDone() {
+        saveRun();
+        refresh();
+    }
+
+    private void chooseReward() {
+        final String title = run.isVictory()
+                ? "The Rat King falls! Take one card for your deck (Cancel to take none)"
+                : "Victory! Take one card for your deck (Cancel to take none)";
+        GuiChoose.oneOrNone(title, new ArrayList<>(run.getPendingReward()), chosen -> {
+            run.takeReward(chosen);
+            saveRun();
+            if (run.isVictory()) {
+                showVictory();
+            }
+            refresh();
+        });
+    }
+
+    private void showVictory() {
+        final int won = run.getFightsWon();
+        clearRun();
+        refresh();
+        FOptionPane.showMessageDialog("You beat the Rat King and cleared the act after " + won + " fight(s). The run is won!", TITLE);
     }
 
     private void abandonRun() {
@@ -194,11 +329,11 @@ public class SpireScreen extends LaunchScreen {
         });
     }
 
-    private void hostFight() {
-        final PaperCard rat = FModel.getMagicDb().getCommonCards().getUniqueByName(RAT_CARD);
+    private void hostFight(final SpireMap.Monster enemy) {
+        final PaperCard monsterCard = FModel.getMagicDb().getCommonCards().getUniqueByName(enemy.cardName);
         final PaperCard spireRules = FModel.getMagicDb().getCommonCards().getUniqueByName(RULES_CARD);
         final PaperCard basic = FModel.getMagicDb().getCommonCards().getUniqueByName(BASIC_CARD);
-        if (rat == null || spireRules == null || basic == null) {
+        if (monsterCard == null || spireRules == null || basic == null) {
             FOptionPane.showErrorDialog("Commander Spire card scripts were not found.", TITLE);
             return;
         }
@@ -216,13 +351,13 @@ public class SpireScreen extends LaunchScreen {
         human.addExtraCardsInCommandZone(rulesCards);
 
         // The monster has no library: its whole behaviour lives in a command-zone card.
-        final RegisteredPlayer monster = new RegisteredPlayer(new Deck("Giant Rat"))
-                .setPlayer(GamePlayerUtil.createAiPlayer("Giant Rat", 0));
-        monster.setStartingLife(RAT_LIFE);
+        final RegisteredPlayer monster = new RegisteredPlayer(new Deck(enemy.label))
+                .setPlayer(GamePlayerUtil.createAiPlayer(enemy.label, 0));
+        monster.setStartingLife(enemy.life);
         monster.setStartingHand(0);
-        final List<IPaperCard> ratCards = new ArrayList<>();
-        ratCards.add(rat);
-        monster.addExtraCardsInCommandZone(ratCards);
+        final List<IPaperCard> monsterCards = new ArrayList<>();
+        monsterCards.add(monsterCard);
+        monster.addExtraCardsInCommandZone(monsterCards);
 
         final List<RegisteredPlayer> players = new ArrayList<>();
         players.add(human);
