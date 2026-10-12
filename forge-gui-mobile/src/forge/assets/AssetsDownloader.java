@@ -32,6 +32,8 @@ import static forge.localinstance.properties.ForgeConstants.RELEASE_URL;
 import static forge.localinstance.properties.ForgeConstants.RES_DIR;
 
 public class AssetsDownloader {
+    private static final String SPIRE_UPDATE_URL = "https://raw.githubusercontent.com/Josecito1002/forge/spire-builds/";
+
     private final static ImmutableList<String> downloadIgnoreExit = ImmutableList.of("Download", "Ignore", "Exit");
     private final static ImmutableList<String> downloadExit = ImmutableList.of("Download", "Exit");
 
@@ -51,7 +53,9 @@ public class AssetsDownloader {
         final String apkSize = "12MB";
 
         final boolean isSnapshots = versionString.contains("SNAPSHOT");
-        final String snapsURL = GITHUB_SNAPSHOT_URL;
+        // Commander Spire builds publish the Android APK on the fork's spire-builds branch
+        final boolean spireChannel = GuiBase.isAndroid();
+        final String snapsURL = spireChannel ? SPIRE_UPDATE_URL : GITHUB_SNAPSHOT_URL;
         // desktop and mobile-dev share the same package
         final String guiChannel = GuiBase.isAndroid() ? "forge/forge-gui-android/" : "forge/forge-gui-desktop/";
         final String releaseURL = RELEASE_URL +  guiChannel;
@@ -98,7 +102,8 @@ public class AssetsDownloader {
                             buildTimeStamp = format.parse(buildTxtFileHandle.readString());
                             buildDate = buildTimeStamp.toString();
                             // if morethan 23 hours the difference, then allow to update..
-                            verifyUpdatable = DateUtil.getElapsedHours(buildTimeStamp, snapsTimestamp) > 23;
+                            verifyUpdatable = spireChannel ? snapsTimestamp.after(buildTimeStamp)
+                                    : DateUtil.getElapsedHours(buildTimeStamp, snapsTimestamp) > 23;
                         } else {
                             //fallback to old version comparison
                             verifyUpdatable = !StringUtils.isEmpty(version) && !versionString.equals(version);
@@ -111,13 +116,13 @@ public class AssetsDownloader {
                 if (verifyUpdatable) {
                     Forge.getSplashScreen().prepareForDialogs();
 
-                    message = "A new version of Forge is available.\n(v." + version + " | " + snapsBuildDate + ")\n" +
+                    message = (spireChannel ? "A new Commander Spire build is available." : "A new version of Forge is available.") + "\n(v." + version + " | " + snapsBuildDate + ")\n" +
                             "You are currently on an older version.\n(v." + versionString + " | " + buildDate + ")\n" +
                             "Would you like to update to the new version now?";
                     if (!Forge.getDeviceAdapter().isConnectedToWifi()) {
                         message += " If so, you may want to connect to wifi first. The download is around " + (GuiBase.isAndroid() ? apkSize : packageSize) + ".";
                     }
-                    if (isSnapshots) // this is for snaps initial info
+                    if (isSnapshots && !spireChannel) // this is for snaps initial info
                         message += Forge.getDeviceAdapter().getLatestChanges(GITHUB_COMMITS_ATOM, buildTimeStamp, snapsTimestamp);
                     //failed to grab latest github tag
                     if (!isSnapshots && releaseTag.isEmpty()) {
@@ -274,7 +279,8 @@ public class AssetsDownloader {
 
         //allow deletion on Android 10 or if using app-specific directory
         boolean allowDeletion = Forge.androidVersion < 30 || GuiBase.isUsingAppDirectory();
-        String assetURL = isSnapshots ? snapsURL + "assets.zip" : releaseURL + versionString + "/" + "assets.zip";
+        // resources still come from the official snapshots, the Spire channel only carries the APK
+        String assetURL = isSnapshots ? GITHUB_SNAPSHOT_URL + "assets.zip" : releaseURL + versionString + "/" + "assets.zip";
         new GuiDownloadZipService("", "resource files", assetURL,
                 ASSETS_DIR, RES_DIR, Forge.getSplashScreen().getProgressBar(), allowDeletion).downloadAndUnzip();
 
