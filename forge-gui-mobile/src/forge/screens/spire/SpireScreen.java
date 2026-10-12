@@ -1,9 +1,10 @@
 package forge.screens.spire;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
@@ -185,16 +186,34 @@ public class SpireScreen extends LaunchScreen {
             advance();
             return;
         }
-        final List<DeckProxy> decks = new ArrayList<>();
+        // Your own decks first (Commander decks, and Constructed decks that have a commander), then the precons.
+        final List<DeckProxy> own = new ArrayList<>();
         for (DeckProxy d : DeckProxy.getAllCommanderDecks()) {
-            decks.add(d);
+            own.add(d);
         }
+        for (DeckProxy d : DeckProxy.getAllConstructedDecks(deck -> !deck.get(DeckSection.Commander).isEmpty())) {
+            own.add(d);
+        }
+        own.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
+        final List<DeckProxy> precons = new ArrayList<>();
         for (DeckProxy d : DeckProxy.getAllCommanderPreconDecks()) {
-            decks.add(d);
+            precons.add(d);
         }
-        Collections.sort(decks, (a, b) -> a.getName().compareToIgnoreCase(b.getName()));
+        precons.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
 
-        GuiChoose.oneOrNone("Choose a commander deck", decks, chosen -> {
+        final Map<String, DeckProxy> byLabel = new LinkedHashMap<>();
+        for (DeckProxy d : own) {
+            byLabel.put("[Mine] " + d.getName(), d);
+        }
+        for (DeckProxy d : precons) {
+            byLabel.putIfAbsent(d.toString(), d);
+        }
+        final String title = own.isEmpty()
+                ? "Choose a commander deck (none of yours found: make one in Deck Manager > Commander)"
+                : "Choose a commander deck ([Mine] = your decks)";
+
+        GuiChoose.oneOrNone(title, new ArrayList<>(byLabel.keySet()), label -> {
+            final DeckProxy chosen = label == null ? null : byLabel.get(label);
             if (chosen == null) {
                 return;
             }
