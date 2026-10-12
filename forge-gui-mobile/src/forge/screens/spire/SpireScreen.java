@@ -331,6 +331,7 @@ public class SpireScreen extends LaunchScreen {
     }
 
     private void hostFight(final SpireMap.Monster enemy) {
+        SpireCards.ensureLoaded();
         final PaperCard monsterCard = FModel.getMagicDb().getCommonCards().getUniqueByName(enemy.cardName);
         final PaperCard spireRules = FModel.getMagicDb().getCommonCards().getUniqueByName(RULES_CARD);
         final PaperCard basic = FModel.getMagicDb().getCommonCards().getUniqueByName(BASIC_CARD);

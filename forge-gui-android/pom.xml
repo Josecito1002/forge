@@ -94,6 +94,19 @@
             <resource>
                 <directory>src/main/resources</directory>
             </resource>
+            <!-- Commander Spire card scripts: Android downloads res/ from the official servers,
+                 which doesn't have them, so the APK carries copies (loaded by SpireCards). -->
+            <resource>
+                <directory>../forge-gui/res/cardsfolder</directory>
+                <includes>
+                    <include>c/commander_spire_rules.txt</include>
+                    <include>s/spire_basic_card.txt</include>
+                    <include>s/spire_giant_rat.txt</include>
+                    <include>s/spire_skeleton_guardian.txt</include>
+                    <include>s/spire_rat_king.txt</include>
+                </includes>
+                <targetPath>assets/spire_cards</targetPath>
+            </resource>
         </resources>
         <!-- append generated snapshot-version property -->
         <finalName>forge-android-${snapshot-version}</finalName>
