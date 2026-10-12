@@ -37,14 +37,18 @@ public class SpireScreen extends LaunchScreen {
     private static final float PADDING = Utils.scale(10);
     private static final int STARTING_DECK_SIZE = 12;
     private static final int STARTING_LANDS = 3;
+    private static final int HAND_SIZE = 5;
     private static final int PLAYER_LIFE = 40;
     private static final int RAT_LIFE = 10;
     private static final String RAT_CARD = "Spire Giant Rat";
+    private static final String RULES_CARD = "Commander Spire Rules";
 
     private final FTextArea lblDesc = add(new FTextArea(false,
             "Commander Spire\n\n"
             + "Pick a commander deck. You start with 12 random non-land cards from it, "
-            + "3 lands on the battlefield and your commander in the command zone, "
+            + "3 lands on the battlefield, the rest of your lands in a separate pile "
+            + "(play one per turn from it or from your hand) and your commander in the command zone. "
+            + "Each turn you draw up to 5 cards; when your library runs out, your graveyard is shuffled back in. "
             + "and fight the Giant Rat (10 life)."));
 
     public SpireScreen() {
@@ -96,15 +100,19 @@ public class SpireScreen extends LaunchScreen {
         spireDeck.getOrCreate(DeckSection.Commander).addAll(source.get(DeckSection.Commander));
         spireDeck.getOrCreate(DeckSection.Main).add(hand12);
 
-        // The 3 starting lands come from the deck's own lands; they are not part of the 12-card deck.
+        // Lands never go in the deck. 3 start on the battlefield; the rest form the land pile,
+        // which lives in the sideboard zone and is playable through the rules card.
+        Collections.shuffle(lands);
         final List<IPaperCard> startLands = new ArrayList<>();
-        for (int i = 0; i < STARTING_LANDS && !lands.isEmpty(); i++) {
-            startLands.add(lands.get(i % lands.size()));
+        while (startLands.size() < STARTING_LANDS && !lands.isEmpty()) {
+            startLands.add(lands.remove(lands.size() - 1));
         }
+        spireDeck.getOrCreate(DeckSection.Sideboard).add(lands);
 
         final PaperCard rat = FModel.getMagicDb().getCommonCards().getUniqueByName(RAT_CARD);
-        if (rat == null) {
-            FOptionPane.showErrorDialog("Card script '" + RAT_CARD + "' was not found.", "Commander Spire");
+        final PaperCard spireRules = FModel.getMagicDb().getCommonCards().getUniqueByName(RULES_CARD);
+        if (rat == null || spireRules == null) {
+            FOptionPane.showErrorDialog("Commander Spire card scripts were not found.", "Commander Spire");
             return;
         }
 
@@ -112,7 +120,11 @@ public class SpireScreen extends LaunchScreen {
         final RegisteredPlayer human = RegisteredPlayer.forVariants(2, variants, spireDeck, null, false, null, null)
                 .setPlayer(GamePlayerUtil.getGuiPlayer());
         human.setStartingLife(PLAYER_LIFE);
+        human.setStartingHand(HAND_SIZE);
         human.addExtraCardsOnBattlefield(startLands);
+        final List<IPaperCard> rulesCards = new ArrayList<>();
+        rulesCards.add(spireRules);
+        human.addExtraCardsInCommandZone(rulesCards);
 
         // The monster has no library: its whole behaviour lives in a command-zone card.
         final RegisteredPlayer monster = new RegisteredPlayer(new Deck("Giant Rat"))

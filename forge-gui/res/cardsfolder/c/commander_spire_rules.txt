@@ -1,0 +1,14 @@
+Name:Commander Spire Rules
+ManaCost:no cost
+Types:Enchantment
+S:Mode$ Continuous | Affected$ Land.YouOwn | AffectedZone$ Sideboard | MayPlay$ True | EffectZone$ Command | Description$ Your lands wait in a separate pile (your sideboard). You may play lands from it, still one land per turn.
+R:Event$ BeginPhase | ActiveZones$ Command | ValidPlayer$ You | Phase$ Draw | Skip$ True | Description$ Skip your draw step.
+T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Command | CheckSVar$ X | SVarCompare$ GE1 | Execute$ TrigDraw | TriggerDescription$ At the beginning of your upkeep, draw cards until you have 5 cards in hand.
+SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ X
+SVar:X:Count$CardsInYourHand/NMinus.5
+R:Event$ Draw | ActiveZones$ Command | ValidPlayer$ You | IsPresent$ Card.YouOwn | PresentZone$ Library | PresentCompare$ EQ0 | CheckSVar$ GY | SVarCompare$ GE1 | ReplaceWith$ Reshuffle | Description$ If you would draw a card while your library is empty, shuffle your graveyard into your library, then draw.
+SVar:Reshuffle:DB$ ChangeZoneAll | ChangeType$ Card.YouOwn | Origin$ Graveyard | Destination$ Library | Shuffle$ True | SubAbility$ DBDraw
+SVar:DBDraw:DB$ Draw | Defined$ You | NumCards$ 1
+SVar:GY:Count$ValidGraveyard Card.YouOwn
+R:Event$ GameLoss | ActiveZones$ Command | ValidPlayer$ You | ValidLoseReason$ Milled | Layer$ CantHappen | Description$ You don't lose the game for drawing from an empty library.
+Oracle:Your lands wait in a separate pile (your sideboard). You may play lands from it, still one land per turn.\nSkip your draw step.\nAt the beginning of your upkeep, draw cards until you have 5 cards in hand.\nIf you would draw a card while your library is empty, shuffle your graveyard into your library, then draw.\nYou don't lose the game for drawing from an empty library.
