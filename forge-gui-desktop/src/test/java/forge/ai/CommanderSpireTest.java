@@ -295,6 +295,31 @@ public class CommanderSpireTest extends AITest {
         AssertJUnit.assertTrue(monster.isInZone(ZoneType.Battlefield));
     }
 
+    @Test
+    public void spireRelicsWorkFromTheCommandZone() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(1);
+        Player skel = game.getPlayers().get(0);
+        p.setLife(40, null);
+        fillLibrary(p, 20);
+        Card rules = addCardToZone("Commander Spire Rules", p, ZoneType.Command);
+        addCardToZone("Spire Anchor", p, ZoneType.Command);
+        addCardToZone("Spire Whetstone", p, ZoneType.Command);
+        addCardToZone("Spire Skeleton Guardian", skel, ZoneType.Battlefield);
+        Card bear = addCardToZone("Grizzly Bears", p, ZoneType.Battlefield);
+        game.getAction().checkStateEffects(true);
+        AssertJUnit.assertEquals(3, bear.getNetPower());
+
+        // the anchor's block 10, from the end of your first turn, soaks the guardian's 7 damage
+        if (p.getTurn() == 0) {
+            p.incrementTurn(); // the test game starts mid-turn, without a turn begin
+        }
+        playUntilPhase(game, PhaseType.CLEANUP);
+        AssertJUnit.assertEquals(10, rules.getCounters(CounterType.getType("BLOCK")));
+        goToMonsterMain1(game, skel);
+        AssertJUnit.assertEquals(40, p.getLife());
+    }
+
     private void goToMonsterMain1(Game game, Player monster) {
         do {
             playUntilNextTurn(game);

@@ -25,17 +25,20 @@ public class SpireMap {
     }
 
     public enum Monster {
-        GIANT_RAT("Giant Rat", "Spire Giant Rat", 20),
-        SKELETON_GUARDIAN("Skeleton Guardian", "Spire Skeleton Guardian", 28),
-        RAT_KING("Rat King", "Spire Rat King", 70);
+        GIANT_RAT("Giant Rat", "Spire Giant Rat", 20, false),
+        SKELETON_GUARDIAN("Skeleton Guardian", "Spire Skeleton Guardian", 28, true),
+        RAT_KING("Rat King", "Spire Rat King", 70, false);
 
         public final String label;
         public final String cardName;
         public final int life;
-        Monster(String label, String cardName, int life) {
+        /** Elites are tougher and also give a relic. */
+        public final boolean elite;
+        Monster(String label, String cardName, int life, boolean elite) {
             this.label = label;
             this.cardName = cardName;
             this.life = life;
+            this.elite = elite;
         }
     }
 

@@ -26,6 +26,7 @@ public class SpireRun {
     public static final int CAMPFIRE_HEAL = 12;
     public static final int STARTING_GOLD = 50;
     public static final int FIGHT_GOLD = 30;
+    public static final int ELITE_GOLD = 20;
 
     private final String deckName;
     private final List<PaperCard> commanders = new ArrayList<>();
@@ -35,6 +36,8 @@ public class SpireRun {
     private final List<PaperCard> flipped = new ArrayList<>();
     private final List<PaperCard> pendingReward = new ArrayList<>();
     private final List<PaperCard> shopOffer = new ArrayList<>();
+    private final List<PaperCard> relics = new ArrayList<>();
+    private boolean relicPending;
     private int life = MAX_LIFE;
     private int gold = STARTING_GOLD;
     private int fightsWon;
@@ -51,10 +54,12 @@ public class SpireRun {
     public static class Fight {
         public final Deck deck;
         public final List<PaperCard> startingLands;
+        public final List<PaperCard> relics;
 
-        private Fight(Deck deck, List<PaperCard> startingLands) {
+        private Fight(Deck deck, List<PaperCard> startingLands, List<PaperCard> relics) {
             this.deck = deck;
             this.startingLands = startingLands;
+            this.relics = relics;
         }
     }
 
@@ -91,6 +96,20 @@ public class SpireRun {
     public int getDeckSize() { return deck.size() + flipped.size(); }
     public int getLife() { return life; }
     public int getGold() { return gold; }
+    public List<PaperCard> getRelics() { return Collections.unmodifiableList(relics); }
+    /** An elite was beaten and its relic not picked yet. */
+    public boolean isRelicPending() { return relicPending; }
+
+    /** Takes the elite's relic (or none, with null). */
+    public void takeRelic(PaperCard relic) {
+        if (!relicPending) {
+            return;
+        }
+        if (relic != null && !relics.contains(relic)) {
+            relics.add(relic);
+        }
+        relicPending = false;
+    }
     public int getFightsWon() { return fightsWon; }
     public boolean isOver() { return over; }
     /** The boss is beaten: the run ends in victory once its reward is chosen. */
@@ -229,11 +248,12 @@ public class SpireRun {
             startingLands.add(pile.remove(pile.size() - 1));
         }
         fightDeck.getOrCreate(DeckSection.Sideboard).add(pile);
-        return new Fight(fightDeck, startingLands);
+        return new Fight(fightDeck, startingLands, new ArrayList<>(relics));
     }
 
     /**
      * A won fight: life carries over (up to 40), 30 gold, and 3 pool cards are revealed as the reward.
+     * An elite also pays 20 more gold and a relic.
      * The boss reveals 5, heals fully and wins the run.
      */
     public void recordWin(int lifeLeft) {
@@ -241,7 +261,9 @@ public class SpireRun {
         boolean boss = node != null && node.type == SpireMap.NodeType.BOSS;
         life = boss ? MAX_LIFE : Math.max(1, Math.min(MAX_LIFE, lifeLeft));
         fightsWon++;
-        gold += boss ? 0 : FIGHT_GOLD;
+        boolean elite = node != null && node.monster != null && node.monster.elite;
+        gold += boss ? 0 : FIGHT_GOLD + (elite ? ELITE_GOLD : 0);
+        relicPending = elite;
         nodeDone = true;
         victory |= boss;
         takeReward(null); // an unclaimed earlier reward goes back to the pool
@@ -276,6 +298,7 @@ public class SpireRun {
         lines.add("name=" + deckName);
         lines.add("life=" + life);
         lines.add("gold=" + gold);
+        lines.add("relicPending=" + relicPending);
         lines.add("won=" + fightsWon);
         lines.add("mulligan=" + mulliganUsed);
         lines.add("over=" + over);
@@ -290,6 +313,7 @@ public class SpireRun {
         saveCards(lines, "pool", pool);
         saveCards(lines, "reward", pendingReward);
         saveCards(lines, "shop", shopOffer);
+        saveCards(lines, "relics", relics);
         lines.add("[map]");
         lines.addAll(map.save());
         return lines;
@@ -306,6 +330,7 @@ public class SpireRun {
     public static SpireRun load(List<String> lines, Function<String, PaperCard> findCard) {
         String name = "";
         int life = MAX_LIFE, won = 0, gold = STARTING_GOLD;
+        boolean relicPending = false;
         boolean mulligan = false, over = false, victory = false, nodeDone = true;
         int row = -1, column = -1;
         List<String> mapLines = null;
@@ -333,6 +358,7 @@ public class SpireRun {
                     case "[pool]": target = run.pool; break;
                     case "[reward]": target = run.pendingReward; break;
                     case "[shop]": target = run.shopOffer; break;
+                    case "[relics]": target = run.relics; break;
                     default: target = null; break;
                 }
             } else if (inMap) {
@@ -352,6 +378,7 @@ public class SpireRun {
                     case "name": name = value; break;
                     case "life": life = Integer.parseInt(value); break;
                     case "gold": gold = Integer.parseInt(value); break;
+                    case "relicPending": relicPending = Boolean.parseBoolean(value); break;
                     case "won": won = Integer.parseInt(value); break;
                     case "mulligan": mulligan = Boolean.parseBoolean(value); break;
                     case "over": over = Boolean.parseBoolean(value); break;
@@ -373,6 +400,7 @@ public class SpireRun {
         run.nodeDone = nodeDone;
         run.life = life;
         run.gold = gold;
+        run.relicPending = relicPending;
         run.fightsWon = won;
         run.mulliganUsed = mulligan;
         run.over = over;

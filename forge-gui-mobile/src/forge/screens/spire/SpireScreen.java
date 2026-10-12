@@ -21,6 +21,7 @@ import forge.game.player.Player;
 import forge.game.player.RegisteredPlayer;
 import forge.gamemodes.match.HostedMatch;
 import forge.gamemodes.spire.SpireMap;
+import forge.gamemodes.spire.SpireRelics;
 import forge.gamemodes.spire.SpireRun;
 import forge.gamemodes.spire.SpireShop;
 import forge.gui.GuiBase;
@@ -65,6 +66,7 @@ public class SpireScreen extends LaunchScreen {
             + "your commander in the command zone, and you draw up to 5 each turn. "
             + "Life (40 max) carries over between fights. After each win you get 30 gold and take 1 of 3 cards from your pool, or none.\n\n"
             + "Climb the act's map: fights, campfires (heal 12, or flip / unflip a card), shops (colorless cards for gold) and the Rat King at the top. "
+            + "Skeleton Guardians are elites: beating one pays 20 more gold and a relic, which is in play from the start of every fight. "
             + "Beat him to win the run.";
 
     private static SpireRun run;
@@ -90,15 +92,16 @@ public class SpireScreen extends LaunchScreen {
         super.onActivate();
         if (!loaded) {
             loaded = true;
+            SpireCards.ensureLoaded(); // saved relics may be Spire cards
             run = loadRun();
         }
-        if (run != null && run.isVictory() && !run.hasPendingReward()) {
+        if (run != null && run.isVictory() && !run.hasPendingReward() && !run.isRelicPending()) {
             showVictory();
         } else if (run != null && run.isOver()) {
             final int won = run.getFightsWon();
             clearRun();
             FOptionPane.showMessageDialog("You fell in the Spire after winning " + won + " fight(s). The run is over.", TITLE);
-        } else if (run != null && run.hasPendingReward()) {
+        } else if (run != null && (run.hasPendingReward() || run.isRelicPending())) {
             chooseReward();
         }
         refresh();
@@ -158,6 +161,9 @@ public class SpireScreen extends LaunchScreen {
             lines.add(card.getName() + " (flipped: Spire Basic Card)");
         }
         lines.add(run.getLands().size() + " lands in the land pile");
+        for (PaperCard card : run.getRelics()) {
+            lines.add(card.getName() + " (relic)");
+        }
         // reveal() passes a null callback, which crashes when the list is closed
         GuiChoose.getChoices("Your deck", -1, -1, lines, ignored -> { });
     }
@@ -358,7 +364,7 @@ public class SpireScreen extends LaunchScreen {
     }
 
     private void chooseReward() {
-        chooseReward(() -> {
+        claimRewards(() -> {
             if (run != null && run.isVictory()) {
                 showVictory();
             }
@@ -366,10 +372,39 @@ public class SpireScreen extends LaunchScreen {
         });
     }
 
-    private static void chooseReward(final Runnable after) {
+    /** The card reward, then the elite's relic, then {@code after}. */
+    private static void claimRewards(final Runnable after) {
+        if (run != null && run.hasPendingReward()) {
+            chooseCard(() -> claimRewards(after));
+        } else if (run != null && run.isRelicPending()) {
+            chooseRelic(() -> claimRewards(after));
+        } else {
+            after.run();
+        }
+    }
+
+    private static void chooseRelic(final Runnable after) {
+        final List<PaperCard> offer = SpireRelics.rollOffer(new Random(), run.getRelics(),
+                name -> FModel.getMagicDb().getCommonCards().getUniqueByName(name));
+        if (offer.isEmpty()) {
+            run.takeRelic(null);
+            saveRun();
+            after.run();
+            return;
+        }
+        GuiChoose.oneOrNone("Elite defeated! Choose a relic: it is in play from the start of every fight (Cancel for none)",
+                offer, relic -> {
+            run.takeRelic(relic);
+            saveRun();
+            after.run();
+        });
+    }
+
+    private static void chooseCard(final Runnable after) {
+        final int gold = SpireRun.FIGHT_GOLD + (run.isRelicPending() ? SpireRun.ELITE_GOLD : 0);
         final String title = run.isVictory()
                 ? "The Rat King falls! Take one card for your deck (Cancel to take none)"
-                : "Victory! +" + SpireRun.FIGHT_GOLD + " gold (" + run.getGold() + " now). Take one card for your deck (Cancel to take none)";
+                : "Victory! +" + gold + " gold (" + run.getGold() + " now). Take one card for your deck (Cancel to take none)";
         GuiChoose.oneOrNone(title, new ArrayList<>(run.getPendingReward()), chosen -> {
             run.takeReward(chosen);
             saveRun();
@@ -383,9 +418,7 @@ public class SpireScreen extends LaunchScreen {
         if (match != null) {
             recordResult(run, match.getGame());
         }
-        if (run != null && run.hasPendingReward()) {
-            chooseReward(() -> { });
-        }
+        claimRewards(() -> { });
     }
 
     private void showVictory() {
@@ -436,9 +469,14 @@ public class SpireScreen extends LaunchScreen {
                 .setPlayer(GamePlayerUtil.getGuiPlayer());
         human.setStartingLife(current.getLife());
         human.setStartingHand(HAND_SIZE);
-        human.addExtraCardsOnBattlefield(new ArrayList<IPaperCard>(fight.startingLands));
+        // relics: Spire relics in the command zone, imbued ones on the battlefield with the starting lands
+        final List<IPaperCard> onBattlefield = new ArrayList<>(fight.startingLands);
         final List<IPaperCard> rulesCards = new ArrayList<>();
         rulesCards.add(spireRules);
+        for (PaperCard relic : fight.relics) {
+            (SpireRelics.startsInCommandZone(relic) ? rulesCards : onBattlefield).add(relic);
+        }
+        human.addExtraCardsOnBattlefield(onBattlefield);
         human.addExtraCardsInCommandZone(rulesCards);
 
         // The monster has no library: it is one creature on its battlefield whose toughness is its life.

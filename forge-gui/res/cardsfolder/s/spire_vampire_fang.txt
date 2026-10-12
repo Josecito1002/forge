@@ -1,0 +1,6 @@
+Name:Spire Vampire Fang
+ManaCost:no cost
+Types:Artifact
+T:Mode$ DamageDoneOnce | ValidTarget$ Opponent | ValidSource$ Creature.YouCtrl | CombatDamage$ True | TriggerZones$ Command | Execute$ TrigGain | TriggerDescription$ Relic — Whenever creatures you control deal combat damage to an opponent, you gain 2 life.
+SVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ 2
+Oracle:Relic — Whenever creatures you control deal combat damage to an opponent, you gain 2 life.

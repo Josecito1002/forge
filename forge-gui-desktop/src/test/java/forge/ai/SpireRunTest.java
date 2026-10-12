@@ -10,6 +10,7 @@ import org.testng.annotations.Test;
 import forge.deck.Deck;
 import forge.deck.DeckSection;
 import forge.gamemodes.spire.SpireMap;
+import forge.gamemodes.spire.SpireRelics;
 import forge.gamemodes.spire.SpireRun;
 import forge.gamemodes.spire.SpireShop;
 import forge.item.PaperCard;
@@ -276,9 +277,15 @@ public class SpireRunTest extends AITest {
         SpireRun run = SpireRun.start(sourceDeck(), new Random(3));
         AssertJUnit.assertEquals(SpireRun.STARTING_GOLD, run.getGold());
         SpireRun first = SpireRun.start(sourceDeck(), new Random(3));
-        first.moveTo(first.getNextChoices().get(0));
+        SpireMap.Node plain = first.getNextChoices().get(0);
+        for (SpireMap.Node node : first.getNextChoices()) {
+            if (!node.monster.elite) {
+                plain = node;
+            }
+        }
+        first.moveTo(plain);
         first.recordWin(30);
-        AssertJUnit.assertEquals(SpireRun.STARTING_GOLD + SpireRun.FIGHT_GOLD, first.getGold());
+        AssertJUnit.assertEquals(SpireRun.STARTING_GOLD + SpireRun.FIGHT_GOLD + (plain.monster.elite ? SpireRun.ELITE_GOLD : 0), first.getGold());
 
         // walk to the first shop, staying in its column
         SpireMap.Node shop = null;
@@ -329,5 +336,46 @@ public class SpireRunTest extends AITest {
         run.leaveShop();
         AssertJUnit.assertFalse(run.isAtShop());
         AssertJUnit.assertTrue(run.getShopOffer().isEmpty());
+    }
+
+    @Test
+    public void elitesGiveARelicThatJoinsEveryFight() {
+        SpireRun run = null;
+        SpireMap.Node elite = null;
+        for (int seed = 5; elite == null; seed++) {
+            run = SpireRun.start(sourceDeck(), new Random(seed));
+            for (SpireMap.Node node : run.getNextChoices()) {
+                if (node.monster != null && node.monster.elite) {
+                    elite = node;
+                }
+            }
+        }
+        int gold = run.getGold();
+        run.moveTo(elite);
+        run.recordWin(30);
+        AssertJUnit.assertEquals(gold + SpireRun.FIGHT_GOLD + SpireRun.ELITE_GOLD, run.getGold());
+        AssertJUnit.assertTrue(run.isRelicPending());
+
+        List<PaperCard> offer = SpireRelics.rollOffer(new Random(6), run.getRelics(), name -> FModel.getMagicDb().getCommonCards().getUniqueByName(name));
+        AssertJUnit.assertEquals(SpireRelics.OFFER_SIZE, offer.size());
+        run.takeRelic(offer.get(0));
+        AssertJUnit.assertFalse(run.isRelicPending());
+        AssertJUnit.assertEquals(1, run.getRelics().size());
+        AssertJUnit.assertTrue(run.prepareFight(card("Grizzly Bears"), new Random(7)).relics.contains(offer.get(0)));
+
+        // an owned relic is not offered again, and relics survive a save
+        AssertJUnit.assertFalse(SpireRelics.rollOffer(new Random(6), run.getRelics(), name -> FModel.getMagicDb().getCommonCards().getUniqueByName(name)).contains(offer.get(0)));
+        SpireRun loaded = SpireRun.load(run.save(), request -> FModel.getMagicDb().getCommonCards().getUniqueByName(request.split("\\|")[0]));
+        AssertJUnit.assertEquals(run.getRelics(), loaded.getRelics());
+    }
+
+    @Test
+    public void everyRelicExists() {
+        for (String name : SpireRelics.SPIRE_RELICS) {
+            AssertJUnit.assertNotNull(name, FModel.getMagicDb().getCommonCards().getUniqueByName(name));
+        }
+        for (String name : SpireRelics.IMBUED_RELICS) {
+            AssertJUnit.assertNotNull(name, FModel.getMagicDb().getCommonCards().getUniqueByName(name));
+        }
     }
 }

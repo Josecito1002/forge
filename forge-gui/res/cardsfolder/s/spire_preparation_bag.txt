@@ -1,0 +1,7 @@
+Name:Spire Preparation Bag
+ManaCost:no cost
+Types:Artifact
+T:Mode$ Phase | Phase$ Main1 | ValidPlayer$ You | TriggerZones$ Command | CheckSVar$ X | SVarCompare$ EQ1 | Execute$ TrigDraw | TriggerDescription$ Relic — At the beginning of your precombat main phase on your first turn of each fight, draw two cards.
+SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 2
+SVar:X:Count$YourTurns
+Oracle:Relic — At the beginning of your precombat main phase on your first turn of each fight, draw two cards.

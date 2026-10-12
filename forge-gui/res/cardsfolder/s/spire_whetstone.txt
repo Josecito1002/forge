@@ -1,0 +1,5 @@
+Name:Spire Whetstone
+ManaCost:no cost
+Types:Artifact
+S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | EffectZone$ Command | Description$ Relic — Creatures you control get +1/+0.
+Oracle:Relic — Creatures you control get +1/+0.

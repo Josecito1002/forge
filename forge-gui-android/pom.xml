@@ -104,6 +104,10 @@
                     <include>s/spire_giant_rat.txt</include>
                     <include>s/spire_skeleton_guardian.txt</include>
                     <include>s/spire_rat_king.txt</include>
+                    <include>s/spire_anchor.txt</include>
+                    <include>s/spire_preparation_bag.txt</include>
+                    <include>s/spire_whetstone.txt</include>
+                    <include>s/spire_vampire_fang.txt</include>
                 </includes>
                 <targetPath>assets/spire_cards</targetPath>
             </resource>

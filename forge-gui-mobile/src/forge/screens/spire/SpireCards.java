@@ -26,6 +26,10 @@ public final class SpireCards {
         "s/spire_giant_rat.txt",
         "s/spire_skeleton_guardian.txt",
         "s/spire_rat_king.txt",
+        "s/spire_anchor.txt",
+        "s/spire_preparation_bag.txt",
+        "s/spire_whetstone.txt",
+        "s/spire_vampire_fang.txt",
     };
 
     private static boolean checked;

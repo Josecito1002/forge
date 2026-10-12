@@ -1,0 +1,7 @@
+Name:Spire Anchor
+ManaCost:no cost
+Types:Artifact
+T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Command | CheckSVar$ X | SVarCompare$ EQ1 | Execute$ TrigBlock | TriggerDescription$ Relic — At the beginning of your end step on your first turn of each fight, block 10.
+SVar:TrigBlock:DB$ PutCounter | Defined$ ValidCommand Card.namedCommander Spire Rules+YouOwn | CounterType$ BLOCK | CounterNum$ 10
+SVar:X:Count$YourTurns
+Oracle:Relic — At the beginning of your end step on your first turn of each fight, block 10.
