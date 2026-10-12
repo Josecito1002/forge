@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 
+import com.badlogic.gdx.utils.Align;
+
 import forge.assets.FSkinFont;
 import forge.deck.Deck;
 import forge.deck.DeckProxy;
@@ -66,6 +68,10 @@ public class SpireScreen extends LaunchScreen {
 
     private final Random rng = new Random();
     private final FTextArea lblDesc = add(new FTextArea(false, INTRO));
+    private final SpireStatsBar statsBar = add(new SpireStatsBar());
+    private final SpireMapView mapView = add(new SpireMapView(this::onNodeTapped));
+    private final FLabel lblHint = add(new FLabel.Builder().font(FSkinFont.get(13)).align(Align.center).build());
+    private final FButton btnDeck = add(new FButton("View deck", e -> showDeck()));
     private final FButton btnAbandon = add(new FButton("Abandon run", e -> abandonRun()));
 
     public SpireScreen() {
@@ -94,88 +100,83 @@ public class SpireScreen extends LaunchScreen {
     }
 
     private void refresh() {
-        if (run == null) {
-            lblDesc.setText(INTRO);
-        } else {
-            final StringBuilder sb = new StringBuilder();
-            sb.append("Commander Spire run: ").append(run.getDeckName()).append("\n\n");
-            sb.append("Life: ").append(run.getLife()).append(" / ").append(SpireRun.MAX_LIFE).append("\n");
-            sb.append("Fights won: ").append(run.getFightsWon()).append("\n");
-            sb.append("Deck: ").append(run.getDeckSize()).append(" cards (")
-              .append(run.getFlipped().size()).append(" flipped)\n");
-            sb.append("Pool: ").append(run.getPool().size()).append(" cards\n");
-            sb.append("Lands: ").append(run.getLands().size()).append("\n\n");
-            appendMap(sb);
-            sb.append("\nDeck:\n");
-            for (PaperCard card : run.getDeck()) {
-                sb.append("  ").append(card.getName()).append("\n");
+        final boolean inRun = run != null;
+        lblDesc.setVisible(!inRun);
+        statsBar.setVisible(inRun);
+        mapView.setVisible(inRun);
+        lblHint.setVisible(inRun);
+        btnDeck.setVisible(inRun);
+        btnAbandon.setVisible(inRun);
+        statsBar.setRun(run);
+        if (inRun) {
+            final SpireMap.Monster fight = run.getPendingFight();
+            if (fight != null) {
+                lblHint.setText("Tap Start (or the glowing node) to fight the " + fight.label + ".");
+            } else if (run.isAtCampfire()) {
+                lblHint.setText("Tap Start to rest at the campfire.");
+            } else {
+                lblHint.setText("Tap a glowing node to choose your path.");
             }
-            for (PaperCard card : run.getFlipped()) {
-                sb.append("  ").append(card.getName()).append(" (flipped)\n");
-            }
-            lblDesc.setText(sb.toString());
         }
-        btnAbandon.setVisible(run != null);
         revalidate();
+        mapView.setRun(run);
     }
 
-    /** The act map, boss on top. The current node is in [brackets]; the nodes you can move to next start with >. */
-    private void appendMap(final StringBuilder sb) {
-        final SpireMap map = run.getMap();
-        final SpireMap.Node current = run.getCurrentNode();
-        final List<SpireMap.Node> next = run.getNextChoices();
-        sb.append("Map (Start moves you up; you can go to the same column or the one next to it):\n");
-        for (int r = map.getRowCount() - 1; r >= 0; r--) {
-            sb.append(r + 1).append(". ");
-            boolean first = true;
-            for (SpireMap.Node node : map.getRow(r)) {
-                if (!first) {
-                    sb.append("  |  ");
-                }
-                first = false;
-                final String text = columnName(node) + " " + nodeLabel(node);
-                if (node == current) {
-                    sb.append('[').append(text).append(']');
-                } else if (next.contains(node)) {
-                    sb.append("> ").append(text);
-                } else {
-                    sb.append(text);
-                }
-            }
-            sb.append("\n");
+    /** Tapping a glowing node moves there; tapping the current node continues what waits on it. */
+    private void onNodeTapped(final SpireMap.Node node) {
+        if (run == null) {
+            return;
         }
-        final SpireMap.Monster fight = run.getPendingFight();
-        if (fight != null) {
-            sb.append("\nPress Start to fight the ").append(fight.label).append(" (").append(fight.life).append(" life).\n");
-        } else if (run.isAtCampfire()) {
-            sb.append("\nPress Start to use the campfire.\n");
-        } else {
-            sb.append("\nPress Start to choose your next node.\n");
+        if (run.getNextChoices().contains(node)) {
+            run.moveTo(node);
+            saveRun();
+            refresh();
+            advance();
+        } else if (node == run.getCurrentNode() && !run.isNodeDone()) {
+            advance();
         }
     }
 
-    private static String columnName(final SpireMap.Node node) {
-        return node.type == SpireMap.NodeType.BOSS ? "" : String.valueOf((char) ('A' + node.column)) + ":";
-    }
-
-    private static String nodeLabel(final SpireMap.Node node) {
-        switch (node.type) {
-            case FIGHT: return node.monster.label;
-            case BOSS: return "BOSS " + node.monster.label;
-            default: return "Campfire";
+    private void showDeck() {
+        final List<String> lines = new ArrayList<>();
+        for (PaperCard card : run.getCommanders()) {
+            lines.add(card.getName() + " (commander)");
         }
+        for (PaperCard card : run.getDeck()) {
+            lines.add(card.getName());
+        }
+        for (PaperCard card : run.getFlipped()) {
+            lines.add(card.getName() + " (flipped: Spire Basic Card)");
+        }
+        lines.add(run.getLands().size() + " lands in the land pile");
+        // reveal() passes a null callback, which crashes when the list is closed
+        GuiChoose.getChoices("Your deck", -1, -1, lines, ignored -> { });
     }
 
     @Override
     protected void doLayoutAboveBtnStart(float startY, float width, float height) {
         float y = startY + PADDING;
-        float bottom = height - PADDING;
-        if (btnAbandon.isVisible()) {
-            float h = Utils.AVG_FINGER_HEIGHT;
-            btnAbandon.setBounds(PADDING, bottom - h, width - 2 * PADDING, h);
-            bottom -= h + PADDING;
+        float w = width - 2 * PADDING;
+        if (run == null) {
+            lblDesc.setBounds(PADDING, y, w, height - y - PADDING);
+            return;
         }
-        lblDesc.setBounds(PADDING, y, width - 2 * PADDING, bottom - y);
+        float statsHeight = SpireStatsBar.getPreferredHeight();
+        statsBar.setBounds(PADDING, y, w, statsHeight);
+        y += statsHeight + PADDING;
+
+        float buttonHeight = Utils.AVG_FINGER_HEIGHT * 0.8f;
+        float bottom = height - PADDING;
+        float half = (w - PADDING) / 2;
+        btnDeck.setBounds(PADDING, bottom - buttonHeight, half, buttonHeight);
+        btnAbandon.setBounds(PADDING * 2 + half, bottom - buttonHeight, half, buttonHeight);
+        bottom -= buttonHeight + PADDING;
+
+        float hintHeight = lblHint.getAutoSizeBounds().height;
+        lblHint.setBounds(PADDING, bottom - hintHeight, w, hintHeight);
+        bottom -= hintHeight + PADDING / 2;
+
+        mapView.setBounds(PADDING, y, w, bottom - y);
     }
 
     @Override
