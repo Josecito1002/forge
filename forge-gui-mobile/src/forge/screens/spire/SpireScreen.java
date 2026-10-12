@@ -112,7 +112,7 @@ public class SpireScreen extends LaunchScreen {
         if (inRun) {
             final SpireMap.Monster fight = run.getPendingFight();
             if (fight != null) {
-                lblHint.setText("Tap Start (or the glowing node) to fight the " + fight.label + ".");
+                lblHint.setText("Tap Start (or your node) to fight the " + fight.label + ".");
             } else if (run.isAtCampfire()) {
                 lblHint.setText("Tap Start to rest at the campfire.");
             } else {
@@ -355,7 +355,18 @@ public class SpireScreen extends LaunchScreen {
         final PaperCard spireRules = FModel.getMagicDb().getCommonCards().getUniqueByName(RULES_CARD);
         final PaperCard basic = FModel.getMagicDb().getCommonCards().getUniqueByName(BASIC_CARD);
         if (monsterCard == null || spireRules == null || basic == null) {
-            FOptionPane.showErrorDialog("Commander Spire card scripts were not found.", TITLE);
+            final List<String> missing = new ArrayList<>();
+            if (monsterCard == null) {
+                missing.add(enemy.cardName);
+            }
+            if (spireRules == null) {
+                missing.add(RULES_CARD);
+            }
+            if (basic == null) {
+                missing.add(BASIC_CARD);
+            }
+            FOptionPane.showErrorDialog("Commander Spire card scripts were not found: " + String.join(", ", missing)
+                    + (SpireCards.getError() == null ? "" : "\n" + SpireCards.getError()), TITLE);
             return;
         }
         final SpireRun current = run;

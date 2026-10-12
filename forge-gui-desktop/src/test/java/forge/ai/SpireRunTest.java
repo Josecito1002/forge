@@ -228,4 +228,24 @@ public class SpireRunTest extends AITest {
         run.unflipAtCampfire(card);
         AssertJUnit.assertTrue(run.getFlipped().contains(card));
     }
+
+    @Test
+    public void customCardsAddedAtRuntimeAreFoundByName() {
+        // Android adds the Spire scripts at runtime (SpireCards); a fresh name stands in for a missing card.
+        List<String> script = java.util.Arrays.asList(
+                "Name:Spire Runtime Test Card", "ManaCost:1", "Types:Instant",
+                "A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1 | SpellDescription$ Deal 1 damage to any target.",
+                "Oracle:Deal 1 damage to any target.");
+        forge.card.CardRules rules = new forge.card.CardRules.Reader().readCard(script, "spire_runtime_test_card");
+        forge.card.CardDb db = FModel.getMagicDb().getCommonCards();
+        AssertJUnit.assertNull(db.getUniqueByName("Spire Runtime Test Card"));
+        db.addCustomCard(rules, forge.card.CardEdition.UNKNOWN_CODE, forge.card.CardRarity.Special);
+        PaperCard found = db.getUniqueByName("Spire Runtime Test Card");
+        AssertJUnit.assertNotNull(found);
+        AssertJUnit.assertNotNull(db.getCard("Spire Runtime Test Card"));
+        // and it can be put into a game
+        forge.game.Game game = initAndCreateGame();
+        forge.game.card.Card c = addCardToZone("Spire Runtime Test Card", game.getPlayers().get(0), forge.game.zone.ZoneType.Hand);
+        AssertJUnit.assertEquals("Spire Runtime Test Card", c.getName());
+    }
 }

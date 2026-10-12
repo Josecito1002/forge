@@ -644,6 +644,20 @@ public final class CardDb implements ICardDatabase, IDeckGenPool {
         }
     }
 
+    /**
+     * Adds a card whose script is not in the cards folder (for example one shipped by a game mode),
+     * indexing it so that name lookups such as {@link #getUniqueByName(String)} find it.
+     */
+    public void addCustomCard(CardRules cr, String setCode, CardRarity rarity) {
+        if (rulesByPrimaryName.putIfAbsent(cr.getName(), cr) == null) {
+            for (ICardFace face : cr.getAllFaces()) {
+                addFaceToDbNames(face, cr);
+            }
+        }
+        addCard(new PaperCard(cr, setCode, rarity));
+        reIndex(cr);
+    }
+
     public void addCard(PaperCard paperCard) {
         if (filtered.contains(paperCard.getName())) {
             return;

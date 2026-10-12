@@ -10,7 +10,6 @@ import forge.card.CardDb;
 import forge.card.CardEdition;
 import forge.card.CardRarity;
 import forge.card.CardRules;
-import forge.item.PaperCard;
 import forge.model.FModel;
 
 /**
@@ -30,8 +29,14 @@ public final class SpireCards {
     };
 
     private static boolean checked;
+    private static String error;
 
     private SpireCards() {
+    }
+
+    /** What went wrong while adding the bundled scripts, or null. */
+    public static String getError() {
+        return error;
     }
 
     public static synchronized void ensureLoaded() {
@@ -44,17 +49,30 @@ public final class SpireCards {
         for (String file : FILES) {
             final FileHandle handle = Gdx.files.internal(ASSET_DIR + file);
             if (!handle.exists()) {
+                // normal on desktop, where the scripts are in res/cardsfolder
+                if (error == null) {
+                    error = ASSET_DIR + file + " is not bundled";
+                }
                 continue;
             }
-            final List<String> lines = Arrays.asList(handle.readString("UTF-8").split("\\r?\\n"));
-            reader.reset();
-            final String baseName = file.substring(file.lastIndexOf('/') + 1, file.length() - ".txt".length());
-            final CardRules rules = reader.readCard(lines, baseName);
-            if (db.getUniqueByName(rules.getName()) != null) {
-                continue;
+            try {
+                addScript(db, reader, file, handle);
+            } catch (RuntimeException e) {
+                error = file + ": " + e;
+                e.printStackTrace();
             }
-            rules.setCustom();
-            db.addCard(new PaperCard(rules, CardEdition.UNKNOWN_CODE, CardRarity.Special));
         }
+    }
+
+    private static void addScript(final CardDb db, final CardRules.Reader reader, final String file, final FileHandle handle) {
+        final List<String> lines = Arrays.asList(handle.readString("UTF-8").split("\\r?\\n"));
+        reader.reset();
+        final String baseName = file.substring(file.lastIndexOf('/') + 1, file.length() - ".txt".length());
+        final CardRules rules = reader.readCard(lines, baseName);
+        if (db.getUniqueByName(rules.getName()) != null) {
+            return;
+        }
+        rules.setCustom();
+        db.addCustomCard(rules, CardEdition.UNKNOWN_CODE, CardRarity.Special);
     }
 }
